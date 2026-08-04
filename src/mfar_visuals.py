@@ -241,18 +241,20 @@ def stage4_forecast_outputs(queue, forecast, event_log, summary, eta_audit, depa
                                              color=f["predicted_wait_min"], colorscale="YlOrRd", showscale=True,
                                              colorbar=dict(title="Wait min")),
                                  text=f["assigned_destination_berth"], name="Predicted ETA"), 2, 1)
-    fig.update_layout(title="Forecast operasional harian 07.00–24.00")
+    fig.update_layout(title="Forecast pre-departure pada temporal holdout")
     s = dict(zip(summary["metric"], summary["value"]))
     cards = [
-        ("Keberangkatan AIS", int(float(s.get("ais_departures_used", 0))), "bukti aktual"),
+        ("Hari holdout", int(float(s.get("evaluation_days", 0))), "periode evaluasi Maret"),
+        ("Keputusan pre-departure", int(float(s.get("predeparture_decisions", 0))), "sebelum keberangkatan"),
         ("Antrean maksimum", f"{float(s.get('max_queue_ce', np.nan)):.2f} CE", "baseline"),
         ("Rata-rata wait", f"{float(s.get('mean_predicted_wait_min', np.nan)):.2f} min", "pada ETA"),
         ("Berth unavailable", int(float(s.get("unavailable_at_eta_rows", 0))), "kasus forecast"),
+        ("MAE ETA holdout", f"{float(s.get('eta_holdout_mae_min', np.nan)):.2f} min", "vs kedatangan aktual"),
     ]
     guide = '<div class="guide">Ukuran titik ETA menunjukkan prediksi waktu tunggu. Arahkan kursor untuk melihat kapal dan dermaga tujuan. Validasi forecast tetap dibedakan dari simulasi intervensi Stage 07.</div>'
     html = _write_report(Path(stage_dir)/"04_operational_forecast_dashboard.html",
-                         "Stage 04 · Forecast tanpa intervensi",
-                         "Perbandingan antrean waktu dan risiko ketersediaan dermaga pada ETA.", cards,
+                         "Stage 04 · Forecast pre-departure pada temporal holdout",
+                         "Parameter dikalibrasi pada periode terdahulu; kasus evaluasi berasal dari periode setelah cutoff.", cards,
                          [("Cara membaca", guide), ("Eksplorasi waktu", _fig_html(fig))])
     xlsx = write_excel_summary(Path(stage_dir)/"04_readable_results.xlsx", {
         "Ringkasan": summary, "Forecast Kapal": f, "Event AIS": event_log,
@@ -329,24 +331,40 @@ def stage7_intervention_outputs(sim, accepted, extra, daily, overall, stage_dir)
                                  name=f"After {port}"), 1, 1)
         fig.add_trace(go.Bar(x=g["simulation_time"], y=g["intervention_service_ce"],
                              name=f"Intervention {port}"), 2, 1)
-    fig.update_layout(title="Validasi skenario intervensi sepanjang hari", barmode="group")
+    fig.update_layout(title="Evaluasi skenario tindakan sepanjang periode holdout", barmode="group")
     status = x["critical_case_status"].value_counts().rename_axis("status").reset_index(name="rows")
     donut = go.Figure(go.Pie(labels=status["status"], values=status["rows"], hole=.55))
     donut.update_layout(title="Status perubahan kondisi kritis")
+    daily_plot = go.Figure()
+    if "queue_area_reduction_percent" in daily:
+        for port, group in daily.groupby("port_id"):
+            daily_plot.add_trace(go.Bar(
+                x=group["evaluation_date"].astype(str),
+                y=group["queue_area_reduction_percent"],
+                name=str(port),
+            ))
+    daily_plot.add_hline(y=0, line_color=COLORS["grey"])
+    daily_plot.update_layout(
+        title="Perubahan queue area per hari dan pelabuhan",
+        yaxis_title="Reduction (%)", barmode="group",
+    )
     metrics = dict(zip(overall["metric"], overall["value"]))
     cards = [
         ("Kritis baseline", int(float(metrics.get("total_critical_baseline", 0))), "baris 5 menit"),
         ("Kritis setelah", int(float(metrics.get("total_critical_after", 0))), "baris 5 menit"),
-        ("Kritis terselesaikan", int(float(metrics.get("critical_resolved", 0))), "resolved"),
-        ("Queue area turun", f"{float(metrics.get('queue_area_reduction_percent', np.nan)):.2f}%", "baseline vs intervensi"),
-        ("Rekomendasi diterima", len(accepted), "setelah cooldown"),
+        ("Hari evaluasi", int(float(metrics.get("evaluation_days", 0))), "temporal holdout"),
+        ("Median queue area", f"{float(metrics.get('median_daily_queue_area_reduction_percent', np.nan)):.2f}%", "per hari-pelabuhan"),
+        ("Rekomendasi operasional", len(accepted), "NO_INTERVENTION dikecualikan"),
     ]
     guide = '<div class="guide">Garis putus-putus adalah baseline. Garis penuh adalah hasil setelah intervensi. Batang pada panel bawah menunjukkan waktu dan kapasitas layanan tambahan; ini membedakan rekomendasi fuzzy dari intervensi yang benar-benar diterapkan.</div>'
-    html = _write_report(Path(stage_dir)/"07_intervention_validation_dashboard.html",
-                         "Stage 07 · Validasi intervensi",
-                         "Perubahan antrean, waktu intervensi, dan penyelesaian kondisi kritis.", cards,
+    html = _write_report(Path(stage_dir)/"07_scenario_evaluation_dashboard.html",
+                         "Stage 07 · Evaluasi skenario tindakan",
+                         "Hasil skenario internal pada temporal holdout; bukan validasi empiris dampak intervensi.", cards,
                          [("Cara membaca", guide), ("Skenario waktu", _fig_html(fig)),
+                          ("Distribusi dampak harian", _fig_html(daily_plot)),
                           ("Perubahan status kritis", _fig_html(donut))])
+    legacy = Path(stage_dir)/"07_intervention_validation_dashboard.html"
+    legacy.write_text(html.read_text(encoding="utf-8"), encoding="utf-8")
     xlsx = write_excel_summary(Path(stage_dir)/"07_readable_results.xlsx", {
         "Ringkasan Utama": overall, "Per Pelabuhan": daily,
         "Rekomendasi Diterima": accepted, "Event Intervensi": extra,

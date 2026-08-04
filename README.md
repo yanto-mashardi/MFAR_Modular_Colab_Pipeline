@@ -1,7 +1,7 @@
 # MFAR Modular Google Colab Pipeline
 
 Pipeline modular AIS → interpolasi lima menit → monitoring dermaga → forecast
-tanpa intervensi → fuzzification → rule evaluation → validasi candidate action.
+pre-departure → fuzzification → rule evaluation → evaluasi skenario tindakan.
 
 Kode notebook dan konfigurasi model berada di repository ini. Data besar dan
 hasil simulasi disimpan terpisah pada folder Google Drive:
@@ -54,7 +54,7 @@ diperiksa bila folder tidak ditemukan.
 | 04 | `04_No_Intervention_Forecast.ipynb` | Stage 3 dan `data_raw/vehicle_arrival_rate_30min.csv` | `stage_04/04_fuzzy_input.csv` |
 | 05 | `05_Fuzzification.ipynb` | `stage_04/04_fuzzy_input.csv` | `stage_05/05_fuzzy_memberships.csv` |
 | 06 | `06_Rule_Evaluation.ipynb` | `stage_05/05_fuzzy_memberships.csv` | `stage_06/06_rule_evaluation.csv` |
-| 07 | `07_Candidate_Action.ipynb` | Stage 4 queue/event log dan Stage 6 rule evaluation | laporan Stage 7 |
+| 07 | `07_Candidate_Action.ipynb` | Stage 4 queue/event log dan Stage 6 rule evaluation | evaluasi skenario multi-hari |
 
 Jalankan notebook 01–07 secara berurutan. Setiap tahap memeriksa keberadaan,
 keterbacaan, isi, dan kolom wajib input sebelum melanjutkan. Rerun mengganti
@@ -68,8 +68,29 @@ sumber input, jumlah baris input/output, direktori output, dan daftar artefak.
 
 File `*_TEMPLATE.csv` di root repository hanya contoh dan bukan input aktif.
 Konfigurasi ilmiah tetap berada pada `config/`, termasuk profil kapal, dermaga,
-parameter membership, fuzzy rules, dan action constraints. Perubahan migrasi
-path tidak mengubah nilai parameter atau formula model.
+parameter membership, fuzzy rules, dan action constraints. Ketiga CSV tersebut
+dibaca langsung oleh algoritma dan disalin ke output sebagai konfigurasi yang
+benar-benar digunakan.
+
+## Struktur evaluasi yang diaudit
+
+- Stage 01–02 membagi lintasan berdasarkan MMSI, tanggal, episode perjalanan,
+  gap waktu, dan loncatan spasial. Peta memeriksa ID JavaScript, jumlah
+  titik/segmen, tile layer, serta bounds sebelum dinyatakan berhasil.
+- Stage 03 mengestimasi turnaround dan reliabilitas per kapal dari episode
+  sandar terdahulu; 40 menit berfungsi sebagai fallback saat riwayat belum
+  tersedia.
+- Januari–Februari 2026 menjadi periode kalibrasi lengkap. Maret 2026 menjadi
+  temporal holdout untuk forecast dan evaluasi skenario.
+- Stage 04 membentuk kasus keputusan 15 menit sebelum keberangkatan AIS serta
+  membandingkan ETA dengan waktu masuk dermaga tujuan aktual pada holdout.
+- Stage 05–06 menggunakan file konfigurasi sebagai sumber tunggal membership,
+  rule, prioritas, cooldown, dan kelayakan tindakan menurut fase operasi.
+- Stage 07 berstatus **scenario evaluation**, bukan validasi empiris dampak
+  intervensi. Hasil dilaporkan per hari dan pelabuhan, termasuk kasus yang
+  membaik dan memburuk.
+
+Diagram struktur tersedia pada `docs/mfar_pipeline_revised.png` dan SVG.
 
 Dependensi Python utama: `pandas`, `numpy`, `folium`, `matplotlib`,
 `ipywidgets`, dan—khusus Colab—`google.colab`.
@@ -88,7 +109,7 @@ sekarang juga menghasilkan artefak yang dapat dibaca langsung:
 | 04 | `04_operational_forecast_dashboard.html`, `04_readable_results.xlsx` |
 | 05 | `05_fuzzy_case_explorer.html`, `05_readable_summary.xlsx` |
 | 06 | `06_rule_action_flow.html`, `06_readable_results.xlsx` |
-| 07 | `07_intervention_validation_dashboard.html`, `07_readable_results.xlsx` |
+| 07 | `07_scenario_evaluation_dashboard.html`, `07_readable_results.xlsx` |
 
 Peta dipakai untuk validasi spasial. Timeline, Sankey, dashboard waktu, matriks
 membership, kartu indikator, dan workbook Excel dipakai sesuai karakter hasil

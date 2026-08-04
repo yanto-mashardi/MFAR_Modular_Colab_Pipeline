@@ -11,3 +11,11 @@ target_headway_min,45.0
 default_capacity_ce,30.0
 default_eta_reliability,1.0
 default_berth_reliability,1.0
+calibration_fraction,0.66
+evaluation_months,1
+decision_lead_min,15.0
+departure_maneuver_min,5.0
+fallback_trip_min,45.0
+max_interpolation_gap_min,20.0
+motorcycle_ce,0.25
+minimum_rule_strength,0.35
