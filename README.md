@@ -73,3 +73,34 @@ path tidak mengubah nilai parameter atau formula model.
 
 Dependensi Python utama: `pandas`, `numpy`, `folium`, `matplotlib`,
 `ipywidgets`, dan—khusus Colab—`google.colab`.
+
+
+## Keluaran interpretatif
+
+Notebook tetap menulis CSV/JSON sebagai kontrak data antartahap. Setiap `Run all`
+sekarang juga menghasilkan artefak yang dapat dibaca langsung:
+
+| Tahap | Artefak interpretatif |
+|---|---|
+| 01 | `01_ais_full_validation_map.html`, `01_data_quality_dashboard.html`, `01_readable_summary.xlsx` |
+| 02 | `02_validation_map_<MMSI>_<tanggal>.html`, `02_interpolated_full_validation_map.html`, `02_interpolation_dashboard.html`, `02_readable_summary.xlsx` |
+| 03 | `03_berth_monitoring_story.html`, `03_readable_summary.xlsx` |
+| 04 | `04_operational_forecast_dashboard.html`, `04_readable_results.xlsx` |
+| 05 | `05_fuzzy_case_explorer.html`, `05_readable_summary.xlsx` |
+| 06 | `06_rule_action_flow.html`, `06_readable_results.xlsx` |
+| 07 | `07_intervention_validation_dashboard.html`, `07_readable_results.xlsx` |
+
+Peta dipakai untuk validasi spasial. Timeline, Sankey, dashboard waktu, matriks
+membership, kartu indikator, dan workbook Excel dipakai sesuai karakter hasil
+pada tahap lain. Peta Stage 02 per kapal-hari merupakan validasi lintasan utama;
+peta seluruh periode hanya menunjukkan cakupan data.
+
+Artefak HTML bersifat interaktif: pengguna dapat melakukan zoom, hover, memilih
+legend, serta menyembunyikan atau menampilkan seri. Workbook Excel hanya memuat
+ringkasan dan hasil yang relevan bagi pembaca; tabel besar tetap berada di CSV.
+
+Instal dependensi sebelum eksekusi penuh:
+
+```bash
+pip install -r requirements.txt
+```
