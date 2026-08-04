@@ -37,6 +37,7 @@ def _mount_colab_drive() -> None:
 
 
 def _candidate_roots() -> list[Path]:
+    """Return explicit and common locations before a bounded Drive search."""
     candidates: list[Path] = []
     override = os.environ.get("MFAR_GDRIVE_ROOT", "").strip()
     if override:
@@ -58,7 +59,9 @@ def _candidate_roots() -> list[Path]:
             candidates.extend(
                 [
                     base / "My Drive" / DRIVE_FOLDER_NAME,
+                    base / "My Drive" / "Post Doctor" / DRIVE_FOLDER_NAME,
                     base / "MyDrive" / DRIVE_FOLDER_NAME,
+                    base / "MyDrive" / "Post Doctor" / DRIVE_FOLDER_NAME,
                     base / DRIVE_FOLDER_NAME,
                 ]
             )
@@ -68,11 +71,12 @@ def _candidate_roots() -> list[Path]:
             candidates.extend(
                 [
                     home / "Google Drive" / "My Drive" / DRIVE_FOLDER_NAME,
+                    home / "Google Drive" / "My Drive" / "Post Doctor" / DRIVE_FOLDER_NAME,
                     home / "My Drive" / DRIVE_FOLDER_NAME,
+                    home / "My Drive" / "Post Doctor" / DRIVE_FOLDER_NAME,
                 ]
             )
 
-    # Preserve order while removing duplicates.
     unique: list[Path] = []
     seen: set[str] = set()
     for candidate in candidates:
@@ -83,25 +87,101 @@ def _candidate_roots() -> list[Path]:
     return unique
 
 
-def resolve_drive_root() -> Path:
-    """Resolve the synchronized/mounted I/O folder or fail with diagnostics."""
-    _mount_colab_drive()
-    checked = _candidate_roots()
-    for candidate in checked:
+def _contains_required_inputs(candidate: Path) -> bool:
+    data_raw = candidate / "data_raw"
+    return (
+        (data_raw / "ais_raw.csv").is_file()
+        and (data_raw / "vehicle_arrival_rate_30min.csv").is_file()
+    )
+
+
+def _discover_mounted_roots(max_depth: int = 8) -> list[Path]:
+    """Find the exact folder name anywhere in mounted MyDrive/Shared drives."""
+    if not _is_colab():
+        return []
+
+    search_bases = [
+        Path("/content/drive/MyDrive"),
+        Path("/content/drive/Shareddrives"),
+    ]
+    ignored = {
+        ".Trash",
+        ".shortcut-targets-by-id",
+        "stage_output",
+        "executed_notebooks",
+        "__pycache__",
+    }
+    discovered: list[Path] = []
+
+    for base in search_bases:
+        if not base.is_dir():
+            continue
         try:
-            if candidate.is_dir() and candidate.name == DRIVE_FOLDER_NAME:
-                return candidate.resolve()
+            for current, dirnames, _filenames in os.walk(base, followlinks=True):
+                current_path = Path(current)
+                try:
+                    depth = len(current_path.relative_to(base).parts)
+                except ValueError:
+                    dirnames[:] = []
+                    continue
+
+                dirnames[:] = [
+                    name
+                    for name in dirnames
+                    if name not in ignored and not name.startswith(".")
+                ]
+                if current_path.name == DRIVE_FOLDER_NAME:
+                    discovered.append(current_path)
+                    dirnames[:] = []
+                    continue
+                if depth >= max_depth:
+                    dirnames[:] = []
         except OSError:
-            # An unavailable or sandbox-restricted mounted drive must not mask
-            # the actionable resolver diagnostic below.
             continue
 
-    rendered = "\n".join(f"  - {path}" for path in checked)
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for candidate in discovered:
+        key = str(candidate)
+        if key not in seen:
+            seen.add(key)
+            unique.append(candidate)
+    return unique
+
+
+def resolve_drive_root() -> Path:
+    """Resolve the mounted I/O folder and verify both raw CSV inputs."""
+    _mount_colab_drive()
+    checked = _candidate_roots()
+    discovered = _discover_mounted_roots()
+    all_candidates = [*checked, *discovered]
+    found_without_inputs: list[Path] = []
+
+    for candidate in all_candidates:
+        try:
+            if candidate.is_dir() and candidate.name == DRIVE_FOLDER_NAME:
+                if _contains_required_inputs(candidate):
+                    return candidate.resolve()
+                found_without_inputs.append(candidate)
+        except OSError:
+            continue
+
+    rendered = "\n".join(f"  - {path}" for path in all_candidates)
+    incomplete = ""
+    if found_without_inputs:
+        incomplete = (
+            "\nFolder bernama benar ditemukan, tetapi dua input wajib tidak lengkap:\n"
+            + "\n".join(f"  - {path}" for path in found_without_inputs)
+        )
     raise FileNotFoundError(
-        f"Folder Google Drive '{DRIVE_FOLDER_NAME}' tidak ditemukan.\n"
-        f"Path yang diperiksa:\n{rendered}\n"
-        "Mount/sinkronkan Google Drive, lalu tetapkan MFAR_GDRIVE_ROOT ke path "
-        "folder tersebut (bukan folder ID atau URL). "
+        f"Folder Google Drive '{DRIVE_FOLDER_NAME}' dengan dua input wajib "
+        f"tidak ditemukan.\nPath yang diperiksa/ditemukan:\n{rendered}"
+        f"{incomplete}\n"
+        "Pastikan folder dapat dilihat oleh akun Google yang dipakai Colab. "
+        "Jika folder dibagikan kepada Anda, tambahkan shortcut folder itu ke "
+        "My Drive. Alternatifnya, tetapkan MFAR_GDRIVE_ROOT ke path folder "
+        "yang tampil setelah Drive di-mount. Jangan gunakan folder ID atau URL "
+        "sebagai path pandas. "
         f"Folder ID dokumentasi: {DRIVE_FOLDER_ID}"
     )
 
