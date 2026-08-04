@@ -81,7 +81,9 @@ benar-benar digunakan.
   label/kedalaman laut, OpenStreetMap fallback, lintasan, titik AIS, terminal,
   dan titik muat dapat dipilih secara terpisah. GEBCO adalah grid global 15
   arc-second untuk visualisasi penelitian dan bukan untuk navigasi atau
-  keselamatan pelayaran.
+  keselamatan pelayaran. Tile Esri Ocean dimuat pada resolusi native sampai
+  level zoom 16 agar skala lokal tidak memakai pembesaran tile level 9 yang
+  terlihat kabur.
 - Stage 03 mengestimasi turnaround dan reliabilitas per kapal dari episode
   sandar terdahulu; 40 menit berfungsi sebagai fallback saat riwayat belum
   tersedia.
