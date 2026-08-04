@@ -57,6 +57,8 @@ class AuditedPipelineTests(unittest.TestCase):
         self.assertTrue(audit["has_ocean_basemap"])
         self.assertTrue(audit["has_ocean_reference"])
         self.assertTrue(audit["has_gebco_2026"])
+        self.assertTrue(audit["esri_native_zoom_16"])
+        self.assertNotIn('"maxNativeZoom": 9', html)
         self.assertIn("Terminal dan titik muat", html)
         self.assertIn("bukan untuk navigasi", html.lower())
 
