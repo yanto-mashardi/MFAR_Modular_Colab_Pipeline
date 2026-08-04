@@ -36,7 +36,7 @@ Untuk lokasi Drive nonstandar, termasuk Google Drive for Desktop di Windows:
 
 ```python
 import os
-os.environ["MFAR_GDRIVE_ROOT"] = r"G:\My Drive\In_Out_MFAR_Modular_Colab_Pipeline"
+os.environ["MFAR_GDRIVE_ROOT"] = r"G:\My Drive\Post Doctor\In_Out_MFAR_Modular_Colab_Pipeline"
 os.environ["MFAR_CODE_ROOT"] = r"C:\path\to\MFAR_Modular_Colab_Pipeline"
 ```
 
