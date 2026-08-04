@@ -10,22 +10,17 @@ import numpy as np
 import pandas as pd
 
 
-ESRI_OCEAN_BASE = (
+ESRI_WORLD_STREET = (
     "https://services.arcgisonline.com/ArcGIS/rest/services/"
-    "Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
+    "World_Street_Map/MapServer/tile/{z}/{y}/{x}"
 )
-ESRI_OCEAN_REFERENCE = (
-    "https://services.arcgisonline.com/ArcGIS/rest/services/"
-    "Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}"
+OPENSEAMAP_SEAMARKS = "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
+ESRI_STREET_ATTRIBUTION = (
+    "Tiles &copy; Esri; data &copy; Esri and contributors"
 )
-GEBCO_2026_WMS = "https://wms.gebco.net/2026/mapserv?"
-GEBCO_2026_LAYER = "gebco_2026_2"
-ESRI_OCEAN_ATTRIBUTION = (
-    "Tiles &copy; Esri; data: Esri, Garmin, GEBCO, NOAA NGDC, "
-    "and other contributors"
+OPENSEAMAP_ATTRIBUTION = (
+    "Nautical marks &copy; OpenSeaMap contributors; map data &copy; OpenStreetMap contributors"
 )
-GEBCO_ATTRIBUTION = "Bathymetry: GEBCO Compilation Group (2026), GEBCO_2026 Grid"
-ESRI_OCEAN_MAX_NATIVE_ZOOM = 16
 
 
 def _haversine_nm(lat1, lon1, lat2, lon2):
@@ -82,11 +77,13 @@ def audit_folium_html(path: Path, expected_points: int, expected_segments: int) 
         "rendered_polyline_layers": polyline_count,
         "tile_layers": tile_count,
         "wms_layers": wms_count,
-        "has_ocean_basemap": "World_Ocean_Base" in text,
-        "has_ocean_reference": "World_Ocean_Reference" in text,
-        "has_gebco_2026": GEBCO_2026_WMS in text and GEBCO_2026_LAYER in text,
-        "esri_native_zoom_16": f'"maxNativeZoom": {ESRI_OCEAN_MAX_NATIVE_ZOOM}' in text,
-        "has_navigation_disclaimer": "bukan untuk navigasi" in text.lower(),
+        "has_esri_street_map": "World_Street_Map" in text,
+        "has_openstreetmap": "openstreetmap.org" in text.lower(),
+        "has_openseamap_seamarks": OPENSEAMAP_SEAMARKS in text,
+        "has_depth_layer": any(token in text.lower() for token in (
+            "gebco", "world_ocean_base", "world_ocean_reference", "batimetri",
+            "kedalaman laut", "tilelayer.wms",
+        )),
         "has_layer_control": "L.control.layers(" in text,
         "expected_sampled_points": int(expected_points),
         "expected_track_segments": int(expected_segments),
@@ -95,19 +92,15 @@ def audit_folium_html(path: Path, expected_points: int, expected_segments: int) 
     if duplicate_ids:
         failures.append(f"{duplicate_ids} JavaScript IDs are duplicated")
     if tile_count < 3:
-        failures.append("ocean basemap, reference labels, or fallback basemap is missing")
-    if wms_count < 1:
-        failures.append("GEBCO bathymetry WMS layer is missing")
-    if not checks["has_ocean_basemap"]:
-        failures.append("Esri World Ocean Base is missing")
-    if not checks["has_ocean_reference"]:
-        failures.append("Esri World Ocean Reference is missing")
-    if not checks["has_gebco_2026"]:
-        failures.append("explicit GEBCO 2026 bathymetry is missing")
-    if not checks["esri_native_zoom_16"]:
-        failures.append("Esri Ocean tiles are not configured at their native zoom 16")
-    if not checks["has_navigation_disclaimer"]:
-        failures.append("navigation-safety disclaimer is missing")
+        failures.append("detailed road basemaps or OpenSeaMap seamarks are missing")
+    if not checks["has_esri_street_map"]:
+        failures.append("Esri World Street Map is missing")
+    if not checks["has_openstreetmap"]:
+        failures.append("OpenStreetMap road basemap is missing")
+    if not checks["has_openseamap_seamarks"]:
+        failures.append("OpenSeaMap nautical seamarks are missing")
+    if checks["has_depth_layer"] or wms_count:
+        failures.append("an unrequested bathymetry/depth layer is still present")
     if not checks["has_layer_control"]:
         failures.append("layer control is missing")
     if circle_count < expected_points:
@@ -137,7 +130,6 @@ def build_validation_map(
 ) -> tuple[Path, pd.DataFrame, dict]:
     """Create a map whose lines never connect unrelated voyages or days."""
     import folium
-    from branca.element import Element
     from folium.plugins import Fullscreen, MeasureControl
 
     path = Path(path)
@@ -154,47 +146,29 @@ def build_validation_map(
     center = [float(segmented["latitude"].median()), float(segmented["longitude"].median())]
     fmap = folium.Map(location=center, zoom_start=12, tiles=None, control_scale=True)
     folium.TileLayer(
-        tiles=ESRI_OCEAN_BASE,
-        name="Peta laut · Esri Ocean Base",
-        attr=ESRI_OCEAN_ATTRIBUTION,
+        tiles=ESRI_WORLD_STREET,
+        name="Peta jalan rinci · Esri World Street",
+        attr=ESRI_STREET_ATTRIBUTION,
         overlay=False,
         control=True,
         show=True,
-        # The Esri service publishes native raster tiles through LOD 16.  Using
-        # level 9 as maxNativeZoom made Leaflet enlarge one tile up to 128x at
-        # local-route zooms, producing the blocky/blurred basemap.
-        max_native_zoom=ESRI_OCEAN_MAX_NATIVE_ZOOM,
-        max_zoom=ESRI_OCEAN_MAX_NATIVE_ZOOM,
+        max_zoom=19,
     ).add_to(fmap)
     folium.TileLayer(
         tiles="OpenStreetMap",
-        name="Peta jalan · OpenStreetMap (fallback)",
+        name="Peta jalan rinci · OpenStreetMap",
         overlay=False,
         control=True,
         show=False,
     ).add_to(fmap)
-    folium.raster_layers.WmsTileLayer(
-        url=GEBCO_2026_WMS,
-        layers=GEBCO_2026_LAYER,
-        name="Batimetri berwarna · GEBCO 2026",
-        attr=GEBCO_ATTRIBUTION,
-        fmt="image/png",
-        transparent=True,
-        overlay=True,
-        control=True,
-        show=True,
-        opacity=0.62,
-        version="1.3.0",
-    ).add_to(fmap)
     folium.TileLayer(
-        tiles=ESRI_OCEAN_REFERENCE,
-        name="Label dan kedalaman laut · Esri",
-        attr=ESRI_OCEAN_ATTRIBUTION,
+        tiles=OPENSEAMAP_SEAMARKS,
+        name="Peta laut rinci · OpenSeaMap",
+        attr=OPENSEAMAP_ATTRIBUTION,
         overlay=True,
         control=True,
         show=True,
-        max_native_zoom=ESRI_OCEAN_MAX_NATIVE_ZOOM,
-        max_zoom=ESRI_OCEAN_MAX_NATIVE_ZOOM,
+        max_zoom=18,
     ).add_to(fmap)
 
     berth_layer = folium.FeatureGroup(name="Terminal dan titik muat", show=True)
@@ -270,18 +244,6 @@ def build_validation_map(
         original_layer.add_to(fmap)
         original_count = len(source)
 
-    note = Element("""
-    <div style="position:fixed;bottom:28px;left:10px;z-index:9999;max-width:310px;
-                background:rgba(255,255,255,.94);padding:9px 11px;border:1px solid #667;
-                border-radius:5px;font:12px/1.35 Arial;color:#17233b">
-      <b>Peta laut dan batimetri</b><br>
-      Aktifkan “Batimetri berwarna · GEBCO 2026” pada kontrol layer. Nilai elevasi
-      GEBCO menggunakan meter; nilai negatif berada di bawah muka laut. Resolusi
-      grid global 15 arc-second tidak mewakili survei hidrografi rinci di alur sempit.
-      <b>Visualisasi ini bukan untuk navigasi atau keselamatan pelayaran.</b>
-    </div>
-    """)
-    fmap.get_root().html.add_child(note)
     Fullscreen(position="topleft", title="Layar penuh", title_cancel="Keluar layar penuh").add_to(fmap)
     MeasureControl(position="topleft", primary_length_unit="nautical-miles").add_to(fmap)
     folium.LatLngPopup().add_to(fmap)
