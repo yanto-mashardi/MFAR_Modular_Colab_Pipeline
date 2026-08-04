@@ -25,6 +25,7 @@ ESRI_OCEAN_ATTRIBUTION = (
     "and other contributors"
 )
 GEBCO_ATTRIBUTION = "Bathymetry: GEBCO Compilation Group (2026), GEBCO_2026 Grid"
+ESRI_OCEAN_MAX_NATIVE_ZOOM = 16
 
 
 def _haversine_nm(lat1, lon1, lat2, lon2):
@@ -84,6 +85,7 @@ def audit_folium_html(path: Path, expected_points: int, expected_segments: int) 
         "has_ocean_basemap": "World_Ocean_Base" in text,
         "has_ocean_reference": "World_Ocean_Reference" in text,
         "has_gebco_2026": GEBCO_2026_WMS in text and GEBCO_2026_LAYER in text,
+        "esri_native_zoom_16": f'"maxNativeZoom": {ESRI_OCEAN_MAX_NATIVE_ZOOM}' in text,
         "has_navigation_disclaimer": "bukan untuk navigasi" in text.lower(),
         "has_layer_control": "L.control.layers(" in text,
         "expected_sampled_points": int(expected_points),
@@ -102,6 +104,8 @@ def audit_folium_html(path: Path, expected_points: int, expected_segments: int) 
         failures.append("Esri World Ocean Reference is missing")
     if not checks["has_gebco_2026"]:
         failures.append("explicit GEBCO 2026 bathymetry is missing")
+    if not checks["esri_native_zoom_16"]:
+        failures.append("Esri Ocean tiles are not configured at their native zoom 16")
     if not checks["has_navigation_disclaimer"]:
         failures.append("navigation-safety disclaimer is missing")
     if not checks["has_layer_control"]:
@@ -156,8 +160,11 @@ def build_validation_map(
         overlay=False,
         control=True,
         show=True,
-        max_native_zoom=9,
-        max_zoom=16,
+        # The Esri service publishes native raster tiles through LOD 16.  Using
+        # level 9 as maxNativeZoom made Leaflet enlarge one tile up to 128x at
+        # local-route zooms, producing the blocky/blurred basemap.
+        max_native_zoom=ESRI_OCEAN_MAX_NATIVE_ZOOM,
+        max_zoom=ESRI_OCEAN_MAX_NATIVE_ZOOM,
     ).add_to(fmap)
     folium.TileLayer(
         tiles="OpenStreetMap",
@@ -186,8 +193,8 @@ def build_validation_map(
         overlay=True,
         control=True,
         show=True,
-        max_native_zoom=9,
-        max_zoom=16,
+        max_native_zoom=ESRI_OCEAN_MAX_NATIVE_ZOOM,
+        max_zoom=ESRI_OCEAN_MAX_NATIVE_ZOOM,
     ).add_to(fmap)
 
     berth_layer = folium.FeatureGroup(name="Terminal dan titik muat", show=True)
