@@ -45,6 +45,7 @@ def _candidate_roots() -> list[Path]:
     candidates.extend(
         [
             Path("/content/drive/MyDrive") / DRIVE_FOLDER_NAME,
+            Path("/content/drive/MyDrive") / "Post Doctor" / DRIVE_FOLDER_NAME,
             Path("/content/drive/Shareddrives") / DRIVE_FOLDER_NAME,
         ]
     )
