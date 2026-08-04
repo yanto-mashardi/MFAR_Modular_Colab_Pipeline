@@ -1,7 +1,36 @@
+Jalankan dari checkout repository, berurutan tanpa melewati tahap:
+
 01_AIS_Input_and_Cleaning.ipynb
+  input  : <DRIVE_ROOT>/data_raw/ais_raw.csv
+  output : <DRIVE_ROOT>/stage_output/stage_01/01_ais_clean.csv
+
 02_Time_Grid_and_State_Preparation.ipynb
+  input  : stage_01/01_ais_clean.csv
+  output : stage_02/02_vessel_interpolated_grid.csv
+
 03_Monitoring_State.ipynb
+  input  : stage_02/02_vessel_interpolated_grid.csv
+  output : stage_03/03_input_state_enhanced.csv
+
 04_No_Intervention_Forecast.ipynb
+  input  : stage_03/03_input_state_enhanced.csv dan
+           <DRIVE_ROOT>/data_raw/vehicle_arrival_rate_30min.csv
+  output : stage_04/04_fuzzy_input.csv,
+           stage_04/04_daily_port_queue_forecast.csv,
+           stage_04/04_daily_event_log.csv
+
 05_Fuzzification.ipynb
+  input  : stage_04/04_fuzzy_input.csv
+  output : stage_05/05_fuzzy_memberships.csv
+
 06_Rule_Evaluation.ipynb
+  input  : stage_05/05_fuzzy_memberships.csv
+  output : stage_06/06_rule_evaluation.csv
+
 07_Candidate_Action.ipynb
+  input  : stage_04 queue/event log dan stage_06 rule evaluation
+  output : seluruh artefak 07_* di stage_07
+
+DRIVE_ROOT adalah folder bernama tepat In_Out_MFAR_Modular_Colab_Pipeline.
+Gunakan MFAR_GDRIVE_ROOT bila lokasi mount/sinkronisasi tidak standar.
+Folder ID/URL Google Drive bukan filesystem path.
