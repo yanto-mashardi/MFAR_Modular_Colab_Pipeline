@@ -99,6 +99,12 @@ Artefak HTML bersifat interaktif: pengguna dapat melakukan zoom, hover, memilih
 legend, serta menyembunyikan atau menampilkan seri. Workbook Excel hanya memuat
 ringkasan dan hasil yang relevan bagi pembaca; tabel besar tetap berada di CSV.
 
+Untuk menjalankan seluruh tahap dalam satu kali perintah, buka
+[`notebooks/00_Run_All_Stages.ipynb`](notebooks/00_Run_All_Stages.ipynb) di
+Google Colab lalu pilih **Runtime → Run all**. Notebook pengendali memperbarui
+branch `test-colab-pipeline`, memasang dependensi, mengeksekusi 01–07, dan
+menimpa artefak bernama sama pada Google Drive.
+
 Instal dependensi sebelum eksekusi penuh:
 
 ```bash
