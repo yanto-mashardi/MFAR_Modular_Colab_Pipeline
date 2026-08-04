@@ -1,0 +1,9 @@
+pandas
+numpy
+matplotlib
+folium
+ipywidgets
+plotly
+openpyxl
+nbconvert
+jupyter
