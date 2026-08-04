@@ -1,0 +1,11 @@
+Stage 4 Daily No-Intervention Forecast
+- simulasi 07.00–24.00;
+- grid 5 menit;
+- stateful;
+- 2 kapal awal;
+- baseline tidak menambah kapal;
+- kendaraan bertambah per 5 menit dari laju 30 menit;
+- kendaraan dikurangi hanya pada event keberangkatan;
+- occupancy dievaluasi pada estimasi tiba;
+- hasil divalidasi terhadap AIS aktual;
+- output utama Stage 5: 04_fuzzy_input.csv.

@@ -1,0 +1,13 @@
+rule_id,antecedent_1,antecedent_2,antecedent_3,antecedent_4,operator,consequence,response,weight
+R1,at_origin,berth_free,queue_high,,MIN,Normal,Depart Now,1.0
+R2,moving,berth_occupied,distance_near,,MIN,Critical,Reduce Speed,1.0
+R3,at_origin,berth_occupied,eta_small,,MIN,Critical,Hold Departure,1.0
+R4,at_origin,headway_short,berth_occupied,,MIN,Warning,Hold Departure,0.9
+R5,headway_long,queue_high,,,MIN,Warning,Increase Service Priority,0.9
+R6,turnaround_long,queue_high,,,MIN,Critical,Alert Operator,1.0
+R7,eta_large,headway_long,,,MIN,Warning,Reschedule Headway,0.85
+R8,moving,berth_soon,speed_normal,,MIN,Watch,Maintain Speed,0.8
+R9,at_origin,queue_high,headway_long,berth_free,MIN,Watch,Depart Now,0.85
+R10,berth_occupied,queue_high,turnaround_long,,MIN,Critical,Alert Operator,1.0
+R11,moving,eta_small,headway_normal,berth_free,MIN,Normal,Maintain Speed,0.8
+R12,queue_medium,headway_normal,berth_free,,MIN,Watch,Phase constrained,0.75

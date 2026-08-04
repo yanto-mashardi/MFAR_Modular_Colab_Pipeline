@@ -1,0 +1,12 @@
+variable,term,function,a,b,c,d,basis
+queue_ratio,low,left_shoulder,0.0,0.0,0.5,1.0,provisional_capacity_based
+queue_ratio,medium,triangle,0.5,1.0,1.5,,provisional_capacity_based
+queue_ratio,high,right_shoulder,1.0,1.5,3.0,3.0,provisional_capacity_based
+eta_min,small,left_shoulder,0.0,0.0,6.0,12.0,provisional
+eta_min,moderate,triangle,7.0,20.0,35.0,,provisional
+eta_min,large,right_shoulder,25.0,40.0,120.0,120.0,provisional
+headway_min,short,left_shoulder,0.0,0.0,25.0,40.0,provisional
+headway_min,normal,triangle,30.0,45.0,60.0,,provisional
+headway_min,long,right_shoulder,50.0,70.0,180.0,180.0,provisional
+turnaround_min,long,right_shoulder,28.0,40.0,120.0,120.0,assumed_40_min
+distance_nm,near,left_shoulder,0.0,0.0,0.5,1.2,geographic_provisional

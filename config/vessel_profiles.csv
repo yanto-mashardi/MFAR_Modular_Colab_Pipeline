@@ -1,0 +1,5 @@
+mmsi,vessel_name,normal_sog_kn,vehicle_capacity_ce,eta_reliability,berth_duration_reliability,turnaround_min,approach_allowance_min
+525002060,MMSI_525002060,6.7,30.0,1.0,1.0,40.0,5
+525002121,MMSI_525002121,7.0,30.0,1.0,1.0,40.0,5
+525003298,MMSI_525003298,4.8,30.0,1.0,1.0,40.0,5
+525015047,MMSI_525015047,5.0,30.0,1.0,1.0,40.0,5

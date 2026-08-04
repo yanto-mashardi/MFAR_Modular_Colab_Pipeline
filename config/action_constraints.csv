@@ -1,0 +1,36 @@
+phase,action,feasible
+AT_ORIGIN_TERMINAL,Depart Now,1
+AT_ORIGIN_TERMINAL,Hold Departure,1
+AT_ORIGIN_TERMINAL,Maintain Speed,0
+AT_ORIGIN_TERMINAL,Reduce Speed,0
+AT_ORIGIN_TERMINAL,Increase Service Priority,1
+AT_ORIGIN_TERMINAL,Reschedule Headway,1
+AT_ORIGIN_TERMINAL,Alert Operator,1
+DEPARTING,Depart Now,0
+DEPARTING,Hold Departure,0
+DEPARTING,Maintain Speed,1
+DEPARTING,Reduce Speed,0
+DEPARTING,Increase Service Priority,0
+DEPARTING,Reschedule Headway,0
+DEPARTING,Alert Operator,1
+SAILING,Depart Now,0
+SAILING,Hold Departure,0
+SAILING,Maintain Speed,1
+SAILING,Reduce Speed,1
+SAILING,Increase Service Priority,0
+SAILING,Reschedule Headway,1
+SAILING,Alert Operator,1
+APPROACHING_DESTINATION,Depart Now,0
+APPROACHING_DESTINATION,Hold Departure,0
+APPROACHING_DESTINATION,Maintain Speed,1
+APPROACHING_DESTINATION,Reduce Speed,1
+APPROACHING_DESTINATION,Increase Service Priority,1
+APPROACHING_DESTINATION,Reschedule Headway,0
+APPROACHING_DESTINATION,Alert Operator,1
+AT_DESTINATION_TERMINAL,Depart Now,0
+AT_DESTINATION_TERMINAL,Hold Departure,0
+AT_DESTINATION_TERMINAL,Maintain Speed,0
+AT_DESTINATION_TERMINAL,Reduce Speed,0
+AT_DESTINATION_TERMINAL,Increase Service Priority,1
+AT_DESTINATION_TERMINAL,Reschedule Headway,0
+AT_DESTINATION_TERMINAL,Alert Operator,1

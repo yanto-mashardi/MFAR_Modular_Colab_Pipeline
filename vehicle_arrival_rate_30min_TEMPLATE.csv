@@ -1,0 +1,5 @@
+port_id,time_start,time_end,car_arrival_rate_30min,motorcycle_arrival_rate_30min
+BENGKALIS,07:00,07:30,0,0
+BENGKALIS,07:30,08:00,0,0
+PAKNING,07:00,07:30,0,0
+PAKNING,07:30,08:00,0,0
