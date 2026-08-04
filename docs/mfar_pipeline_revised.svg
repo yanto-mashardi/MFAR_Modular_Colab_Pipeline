@@ -40,22 +40,22 @@
   <g transform="translate(850,330)">
     <rect width="580" height="160" class="box" fill="#eaf4fc" stroke="#1769aa"/>
     <rect width="580" height="40" rx="13" fill="#1769aa"/><text x="290" y="27" text-anchor="middle" class="head">04 · Pre-departure forecast on holdout</text>
-    <text x="22" y="70" class="body">Decision time = detected departure − 15 minutes</text>
-    <text x="22" y="98" class="body">Queue, ETA, berth availability, service gap, capacity shortfall</text>
-    <text x="22" y="126" class="small">Known demand profile + historical estimates before decision time</text>
+    <text x="22" y="70" class="body">Retrospective decision epoch = observed departure − 15 minutes</text>
+    <text x="22" y="98" class="body">Estimated departure + causal berth-slot calendar → ETA and wait</text>
+    <text x="22" y="126" class="small">Observed departure/arrival retained only as holdout references</text>
     <text x="22" y="151" class="pass">ETA compared with observed destination berth arrival</text>
   </g>
   <path d="M850 410 L785 410" class="arrow"/>
   <g transform="translate(470,330)">
     <rect width="310" height="160" class="box" fill="#f1f8e9" stroke="#558b2f"/>
     <rect width="310" height="40" rx="13" fill="#558b2f"/><text x="155" y="27" text-anchor="middle" class="head">05 · Fuzzification</text>
-    <text x="18" y="74" class="body">membership_parameters.csv</text><text x="18" y="102" class="small">22 configured memberships</text><text x="18" y="130" class="small">No notebook constants</text><text x="18" y="153" class="pass">Range audit 0 ≤ μ ≤ 1</text>
+    <text x="18" y="74" class="body">membership_parameters.csv</text><text x="18" y="102" class="small">22 input + 4 output sets</text><text x="18" y="130" class="small">No notebook constants</text><text x="18" y="153" class="pass">Range audit 0 ≤ μ ≤ 1</text>
   </g>
   <path d="M470 410 L405 410" class="arrow"/>
   <g transform="translate(70,330)">
     <rect width="330" height="160" class="box" fill="#fff0f1" stroke="#b33a3a"/>
     <rect width="330" height="40" rx="13" fill="#b33a3a"/><text x="165" y="27" text-anchor="middle" class="head">06 · Rule evaluation</text>
-    <text x="18" y="74" class="body">fuzzy_rules.csv</text><text x="18" y="102" class="body">action_constraints.csv</text><text x="18" y="130" class="small">Phase feasibility + priority</text><text x="18" y="153" class="pass">No causal action conflict</text>
+    <text x="18" y="74" class="body">Mamdani aggregation</text><text x="18" y="102" class="body">Centroid risk score 0–100</text><text x="18" y="130" class="small">Rule CSV + phase feasibility</text><text x="18" y="153" class="pass">Risk separated from feasible action</text>
   </g>
 
   <path d="M235 490 L235 555" class="arrow"/>
@@ -76,7 +76,7 @@
   <g transform="translate(540,815)">
     <rect width="420" height="270" class="box" fill="#ffffff" stroke="#5b7180"/>
     <text x="210" y="36" text-anchor="middle" class="body" font-weight="700">Researcher-readable outputs</text>
-    <text x="24" y="76" class="small">Folium spatial validation maps</text><text x="24" y="108" class="small">Plotly timelines and dashboards</text><text x="24" y="140" class="small">Sankey rule → action flow</text><text x="24" y="172" class="small">Membership curves and explorer</text><text x="24" y="204" class="small">Excel summaries per stage</text><text x="24" y="240" class="pass">Hover, zoom, filter, direct reading</text>
+    <text x="24" y="76" class="small">Folium spatial validation maps</text><text x="24" y="108" class="small">Self-contained dynamic dashboards</text><text x="24" y="140" class="small">Conjunctive date/vessel/port/action filters</text><text x="24" y="172" class="small">Filtered KPI, plots, and detail rows</text><text x="24" y="204" class="small">Excel summaries per stage</text><text x="24" y="240" class="pass">Offline HTML · no CDN dependency</text>
   </g>
   <g transform="translate(1010,815)">
     <rect width="420" height="270" class="box" fill="#ffffff" stroke="#5b7180"/>

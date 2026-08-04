@@ -82,10 +82,14 @@ benar-benar digunakan.
   tersedia.
 - Januari–Februari 2026 menjadi periode kalibrasi lengkap. Maret 2026 menjadi
   temporal holdout untuk forecast dan evaluasi skenario.
-- Stage 04 membentuk kasus keputusan 15 menit sebelum keberangkatan AIS serta
-  membandingkan ETA dengan waktu masuk dermaga tujuan aktual pada holdout.
+- Stage 04 membentuk kasus keputusan 15 menit sebelum keberangkatan AIS. Waktu
+  keberangkatan untuk ETA diestimasi dari decision lead dan prediksi pelepasan
+  dermaga; waktu keberangkatan AIS aktual hanya menjadi pembanding. Kalender
+  reservasi dermaga kausal mencegah dua ETA memakai slot yang sama.
 - Stage 05–06 menggunakan file konfigurasi sebagai sumber tunggal membership,
   rule, prioritas, cooldown, dan kelayakan tindakan menurut fase operasi.
+  Stage 06 mengagregasikan konsekuensi dengan inferensi Mamdani dan menghitung
+  skor risiko menggunakan centroid pada universe 0–100.
 - Stage 07 berstatus **scenario evaluation**, bukan validasi empiris dampak
   intervensi. Hasil dilaporkan per hari dan pelabuhan, termasuk kasus yang
   membaik dan memburuk.
@@ -116,9 +120,13 @@ membership, kartu indikator, dan workbook Excel dipakai sesuai karakter hasil
 pada tahap lain. Peta Stage 02 per kapal-hari merupakan validasi lintasan utama;
 peta seluruh periode hanya menunjukkan cakupan data.
 
-Artefak HTML bersifat interaktif: pengguna dapat melakukan zoom, hover, memilih
-legend, serta menyembunyikan atau menampilkan seri. Workbook Excel hanya memuat
-ringkasan dan hasil yang relevan bagi pembaca; tabel besar tetap berada di CSV.
+Artefak HTML bersifat mandiri dan tidak bergantung pada CDN. Dashboard Stage
+01–07 menyediakan filter gabungan sesuai konteks tahap—tanggal, kapal,
+pelabuhan, dermaga, fase, rule, tindakan, status kritis, dan skenario. Setiap
+pilihan menghitung ulang KPI, grafik, jumlah baris, dan tabel rincian. Zoom,
+hover, legend toggle, serta time-range slider tetap tersedia. Workbook Excel
+hanya memuat ringkasan dan hasil yang relevan bagi pembaca; tabel besar tetap
+berada di CSV.
 
 Untuk menjalankan seluruh tahap dalam satu kali perintah, buka
 [`notebooks/00_Run_All_Stages.ipynb`](notebooks/00_Run_All_Stages.ipynb) di

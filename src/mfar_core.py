@@ -161,6 +161,24 @@ def _arrival_rate(rates: pd.DataFrame, port: str, stamp: pd.Timestamp, motor_ce:
     return 0., 0., 0.
 
 
+def _earliest_berth_slot(
+    eta: pd.Timestamp,
+    service_min: float,
+    current_release: pd.Timestamp,
+    prior_reservations: list[tuple[pd.Timestamp, pd.Timestamp]],
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Find the earliest non-overlapping berth interval using known reservations."""
+    start = max(pd.Timestamp(eta), pd.Timestamp(current_release))
+    duration = pd.Timedelta(minutes=max(float(service_min), 1.0))
+    for reserved_start, reserved_end in sorted(prior_reservations, key=lambda item: item[0]):
+        reserved_start, reserved_end = pd.Timestamp(reserved_start), pd.Timestamp(reserved_end)
+        if start + duration <= reserved_start:
+            break
+        if start < reserved_end and start + duration > reserved_start:
+            start = reserved_end
+    return start, start + duration
+
+
 def run_stage4(state: pd.DataFrame, episodes: pd.DataFrame, rates: pd.DataFrame, profiles: pd.DataFrame,
                berths: pd.DataFrame, stage_dir: Path, config_dir: Path):
     """Run temporal-holdout, pre-departure forecasts over every evaluation day."""
@@ -174,7 +192,8 @@ def run_stage4(state: pd.DataFrame, episodes: pd.DataFrame, rates: pd.DataFrame,
     cutoff = _calibration_cutoff(state["grid_time"], int(params.get("evaluation_months", 1)))
     evaluation_departures = departures[departures["baseline_departure_time"] > cutoff].copy()
     minute_of_day = evaluation_departures["baseline_departure_time"].dt.hour * 60 + evaluation_departures["baseline_departure_time"].dt.minute
-    evaluation_departures = evaluation_departures[minute_of_day.between(7 * 60, 23 * 60 + 55)].copy()
+    evaluation_departures = (evaluation_departures[minute_of_day.between(7 * 60, 23 * 60 + 55)]
+                              .sort_values("baseline_departure_time").copy())
     dates = sorted(state.loc[state["grid_time"] > cutoff, "grid_time"].dt.date.unique())
     ports = sorted(rates["port_id"].astype(str).str.upper().unique())
     capacity = float(profiles["vehicle_capacity_ce"].median())
@@ -220,6 +239,9 @@ def run_stage4(state: pd.DataFrame, episodes: pd.DataFrame, rates: pd.DataFrame,
                               "trip_min": duration, "known_at": b["berth_entry_time"]})
     trips = pd.DataFrame(trips)
     forecasts = []
+    berth_reservations: dict[str, list[tuple[pd.Timestamp, pd.Timestamp]]] = {
+        str(berth_id): [] for berth_id in berths["berth_id"].astype(str)
+    }
     for _, event in evaluation_departures.iterrows():
         dep = event["baseline_departure_time"]
         decision = dep - pd.Timedelta(minutes=decision_lead)
@@ -230,15 +252,28 @@ def run_stage4(state: pd.DataFrame, episodes: pd.DataFrame, rates: pd.DataFrame,
         history = trips[(trips["known_at"] < decision) & (trips["origin"].astype(str).str.upper() == origin)
                         & (trips["destination"].astype(str).str.upper() == destination)] if not trips.empty else pd.DataFrame()
         sailing_min = float(history["trip_min"].median()) if not history.empty else fallback_trip
-        eta = dep + pd.Timedelta(minutes=sailing_min + float(snap.get("approach_allowance_min", 5)))
+        release = pd.to_datetime(snap.get("predicted_berth_release_time"), errors="coerce")
+        earliest_configured = decision + pd.Timedelta(minutes=decision_lead)
+        predicted_departure = max(earliest_configured, release) if pd.notna(release) else earliest_configured
+        departure_source = "BERTH_RELEASE_ESTIMATE" if pd.notna(release) and release > earliest_configured else "CONFIGURED_DECISION_LEAD"
+        eta = predicted_departure + pd.Timedelta(minutes=sailing_min + float(snap.get("approach_allowance_min", 5)))
         at_decision = state[state["grid_time"].eq(decision) & state["is_at_berth"].astype(bool)]
         releases = {}
         for berth_id in berths.loc[berths["port_id"].astype(str).str.upper().eq(destination), "berth_id"].astype(str):
             occ = at_decision[at_decision["current_berth_id"].astype(str).eq(berth_id)]
             releases[berth_id] = occ["predicted_berth_release_time"].max() if not occ.empty else decision
         if not releases: continue
-        selected = min(releases, key=lambda key: max(pd.Timestamp(releases[key]), eta))
-        available = max(pd.Timestamp(releases[selected]), eta)
+        service_min = float(snap.get("turnaround_estimate_min", params.get("turnaround_min", 40))
+                            or params.get("turnaround_min", 40))
+        candidate_slots = {
+            berth_id: _earliest_berth_slot(
+                eta, service_min, pd.Timestamp(release_time), berth_reservations.get(berth_id, []),
+            )
+            for berth_id, release_time in releases.items()
+        }
+        selected = min(candidate_slots, key=lambda key: candidate_slots[key][0])
+        available, service_end = candidate_slots[selected]
+        berth_reservations.setdefault(selected, []).append((available, service_end))
         wait = max(0., (available - eta).total_seconds() / 60)
         origin_q = queue_lookup.get((decision.floor("5min"), origin), {"queue_ratio": 0})["queue_ratio"]
         dest_q = queue_lookup.get((decision.floor("5min"), destination), {"queue_ratio": 0})["queue_ratio"]
@@ -251,10 +286,18 @@ def run_stage4(state: pd.DataFrame, episodes: pd.DataFrame, rates: pd.DataFrame,
         reliability = float(snap.get("eta_reliability", .5)) * float(snap.get("berth_duration_reliability", .5))
         forecasts.append({**snap.to_dict(), "simulation_time": decision, "decision_time": decision,
                           "baseline_departure_time": dep, "event_type": "PRE_DEPARTURE_DECISION",
+                          "predicted_departure_time": predicted_departure,
+                          "departure_prediction_source": departure_source,
+                          "observed_departure_used_in_eta": False,
+                          "trip_history_latest_time": history["known_at"].max() if not history.empty else pd.NaT,
                           "operational_phase": _phase(pd.Series([snap["operational_status"]])).iloc[0],
                           "capacity_ce": float(event.get("vehicle_capacity_ce", capacity) or capacity),
                           "predicted_eta": eta, "assigned_destination_berth": selected,
-                          "predicted_berth_available_time_at_eta": available, "predicted_wait_min": wait,
+                          "predicted_berth_available_time_at_eta": available,
+                          "predicted_berth_service_start": available,
+                          "predicted_berth_service_end": service_end,
+                          "berth_service_duration_min": service_min,
+                          "predicted_wait_min": wait,
                           "berth_availability_at_eta": float(wait == 0), "origin_queue_ratio": origin_q,
                           "destination_queue_ratio": dest_q, "forecast_confidence": reliability,
                           "service_gap_min": service_gap, "capacity_shortfall_ratio": shortfall / capacity,
@@ -270,6 +313,8 @@ def run_stage4(state: pd.DataFrame, episodes: pd.DataFrame, rates: pd.DataFrame,
     forecast["observed_destination_berth_time"] = observed_arrivals
     forecast["eta_error_min"] = (forecast["predicted_eta"] - forecast["observed_destination_berth_time"]).dt.total_seconds().div(60)
     forecast["absolute_eta_error_min"] = forecast["eta_error_min"].abs()
+    forecast["departure_error_min"] = forecast["predicted_departure_time"].sub(
+        forecast["baseline_departure_time"]).dt.total_seconds().div(60)
     stage_dir = Path(stage_dir); stage_dir.mkdir(parents=True, exist_ok=True)
     queue.to_csv(stage_dir / "04_holdout_port_queue_baseline.csv", index=False)
     queue.to_csv(stage_dir / "04_daily_port_queue_forecast.csv", index=False)
@@ -277,7 +322,8 @@ def run_stage4(state: pd.DataFrame, episodes: pd.DataFrame, rates: pd.DataFrame,
     forecast.to_csv(stage_dir / "04_fuzzy_input.csv", index=False)
     forecast.to_csv(stage_dir / "04_predeparture_forecast.csv", index=False)
     forecast.loc[forecast["observed_destination_berth_time"].notna(), [
-        "mmsi", "origin", "destination", "decision_time", "baseline_departure_time", "predicted_eta",
+        "mmsi", "origin", "destination", "decision_time", "predicted_departure_time",
+        "baseline_departure_time", "departure_error_min", "predicted_eta",
         "observed_destination_berth_time", "eta_error_min", "absolute_eta_error_min", "forecast_confidence"
     ]].to_csv(stage_dir / "04_temporal_holdout_validation.csv", index=False)
     forecast.to_csv(stage_dir / "04_daily_vessel_forecast.csv", index=False)
@@ -289,8 +335,12 @@ def run_stage4(state: pd.DataFrame, episodes: pd.DataFrame, rates: pd.DataFrame,
                                       forecast["absolute_eta_error_min"].mean(), forecast["absolute_eta_error_min"].notna().sum()]})
     summary.to_csv(stage_dir / "04_forecast_summary.csv", index=False)
     summary.to_csv(stage_dir / "04_ais_eta_berth_summary.csv", index=False)
-    eta_audit = pd.DataFrame({"check": ["decision_after_departure", "calibration_leakage", "non_holdout_case", "invalid_confidence"],
-                              "failed_rows": [int((forecast["decision_time"] >= forecast["baseline_departure_time"]).sum()), 0,
+    eta_audit = pd.DataFrame({"check": ["decision_after_departure", "observed_departure_used_as_prediction",
+                                                     "trip_history_not_known_at_decision", "non_holdout_case", "invalid_confidence"],
+                              "failed_rows": [int((forecast["decision_time"] >= forecast["baseline_departure_time"]).sum()),
+                                              int(forecast["observed_departure_used_in_eta"].astype(bool).sum()),
+                                              int((forecast["trip_history_latest_time"].notna()
+                                                   & (forecast["trip_history_latest_time"] >= forecast["decision_time"])).sum()),
                                               int((forecast["data_partition"] != "TEMPORAL_HOLDOUT").sum()),
                                               int((~forecast["forecast_confidence"].between(0, 1)).sum())]})
     eta_audit.to_csv(stage_dir / "04_eta_berth_forecast_audit.csv", index=False)
@@ -316,8 +366,11 @@ def _membership(values, function: str, a: float, b: float, c: float, d: float):
 
 def run_stage5(forecast: pd.DataFrame, stage_dir: Path, config_dir: Path):
     definitions = pd.read_csv(Path(config_dir) / "membership_parameters.csv")
+    input_definitions = definitions[
+        definitions.get("scope", pd.Series("input", index=definitions.index)).astype(str).str.lower().ne("output")
+    ].copy()
     out = forecast.copy()
-    for _, row in definitions.iterrows():
+    for _, row in input_definitions.iterrows():
         column = str(row["input_column"]); membership = str(row["membership_column"])
         if column not in out: raise KeyError(f"Membership input missing: {column}")
         values = pd.to_numeric(out[column], errors="coerce").fillna(0)
@@ -327,7 +380,7 @@ def run_stage5(forecast: pd.DataFrame, stage_dir: Path, config_dir: Path):
     mu = out.filter(regex=r"^mu_")
     audit = pd.DataFrame({"check": ["below_zero", "above_one", "missing_membership", "configuration_rows_applied"],
                           "failed_rows": [int((mu < 0).sum().sum()), int((mu > 1).sum().sum()), int(mu.isna().sum().sum()),
-                                          int(len(mu.columns) != len(definitions))]})
+                                          int(len(mu.columns) != len(input_definitions))]})
     stage_dir = Path(stage_dir); out.to_csv(stage_dir / "05_fuzzy_memberships.csv", index=False)
     audit.to_csv(stage_dir / "05_fuzzification_audit.csv", index=False)
     definitions.to_csv(stage_dir / "05_membership_configuration_used.csv", index=False)
@@ -338,7 +391,7 @@ def run_stage5(forecast: pd.DataFrame, stage_dir: Path, config_dir: Path):
         "service_gap_min": "05_membership_service_gap.png",
     }
     for input_column, filename in plot_names.items():
-        subset = definitions[definitions["input_column"] == input_column]
+        subset = input_definitions[input_definitions["input_column"] == input_column]
         if subset.empty:
             continue
         maximum = max(
@@ -366,6 +419,21 @@ def run_stage5(forecast: pd.DataFrame, stage_dir: Path, config_dir: Path):
 def run_stage6(memberships: pd.DataFrame, stage_dir: Path, config_dir: Path):
     rules = pd.read_csv(Path(config_dir) / "fuzzy_rules.csv")
     constraints = pd.read_csv(Path(config_dir) / "action_constraints.csv")
+    definitions = pd.read_csv(Path(config_dir) / "membership_parameters.csv")
+    output_definitions = definitions[
+        definitions.get("scope", pd.Series("input", index=definitions.index)).astype(str).str.lower().eq("output")
+    ].copy()
+    if output_definitions.empty:
+        raise ValueError("Output membership definitions for Mamdani inference are missing")
+    universe = np.linspace(0.0, 100.0, 1001)
+    output_curves = {
+        str(row["membership_column"]): _membership(
+            universe, str(row["function"]), float(row.get("a", 0) or 0),
+            float(row.get("b", 0) or 0), float(row.get("c", 0) or 0),
+            float(row.get("d", 0) or 0),
+        )
+        for _, row in output_definitions.iterrows()
+    }
     out = memberships.copy()
     action_constraints = constraints.assign(action=constraints["action"].astype(str).str.upper())
     results = []
@@ -375,25 +443,44 @@ def run_stage6(memberships: pd.DataFrame, stage_dir: Path, config_dir: Path):
             ants = [str(rule[c]) for c in ["antecedent_1", "antecedent_2", "antecedent_3", "antecedent_4"]
                     if c in rule and pd.notna(rule[c]) and str(rule[c]).strip()]
             vals = [float(case.get(a, 0)) for a in ants]
-            strength = (min(vals) if str(rule["operator"]).upper() == "MIN" else max(vals)) if vals else 0.
-            strength *= float(rule.get("weight", 1))
+            raw_strength = (min(vals) if str(rule["operator"]).upper() == "MIN" else max(vals)) if vals else 0.
+            raw_strength *= float(rule.get("weight", 1))
             action = str(rule["response"]).upper()
             phase = str(case.get("operational_phase", "UNKNOWN")).upper()
             feasible = action_constraints[(action_constraints["phase"].astype(str).str.upper() == phase)
                                           & (action_constraints["action"] == action)]
             is_feasible = bool(len(feasible) and int(feasible.iloc[0]["feasible"]) == 1)
-            fired.append((str(rule["rule_id"]), action, strength if is_feasible else 0., int(rule.get("priority", 0)), is_feasible))
+            consequence = str(rule["consequence"])
+            fired.append((str(rule["rule_id"]), action, raw_strength,
+                          raw_strength if is_feasible else 0., int(rule.get("priority", 0)),
+                          is_feasible, consequence))
         action_scores = {}
-        for rid, action, strength, priority, feasible in fired:
-            candidate = (strength, priority, rid)
+        for rid, action, raw_strength, feasible_strength, priority, feasible, consequence in fired:
+            candidate = (feasible_strength, priority, rid)
             if action not in action_scores or candidate > action_scores[action]: action_scores[action] = candidate
         ranked = sorted(((score[0], score[1], action, score[2]) for action, score in action_scores.items()), reverse=True)
         if not ranked or ranked[0][0] <= 0: selected = (1., 0, "NO_INTERVENTION", "DEFAULT")
         else: selected = ranked[0]
-        result = {f"firing_{rid}": strength for rid, _, strength, _, _ in fired}
+        aggregate = np.zeros_like(universe)
+        consequence_strengths = {}
+        for rid, action, raw_strength, feasible_strength, priority, feasible, consequence in fired:
+            key = f"mu_risk_{consequence.strip().lower()}"
+            if key not in output_curves:
+                raise KeyError(f"Mamdani consequence membership missing: {key}")
+            aggregate = np.maximum(aggregate, np.minimum(raw_strength, output_curves[key]))
+            consequence_strengths[consequence] = max(consequence_strengths.get(consequence, 0.0), raw_strength)
+        area = float(np.trapezoid(aggregate, universe))
+        risk_score = float(np.trapezoid(universe * aggregate, universe) / area) if area > 0 else 0.0
+        dominant_consequence = max(consequence_strengths, key=consequence_strengths.get) if consequence_strengths else "Normal"
+        result = {f"firing_{rid}": feasible_strength for rid, _, _, feasible_strength, _, _, _ in fired}
+        result.update({f"raw_firing_{rid}": raw_strength for rid, _, raw_strength, _, _, _, _ in fired})
         result.update({"selected_rule_strength": selected[0], "selected_action": selected[2],
                        "dominant_rule": selected[3], "phase_constraint_applied": True,
-                       "infeasible_rule_count": sum(not feasible and strength == 0 for _, _, strength, _, feasible in fired)})
+                       "infeasible_rule_count": sum((not feasible) and raw_strength > 0
+                                                    for _, _, raw_strength, _, _, feasible, _ in fired),
+                       "mamdani_risk_score": risk_score, "mamdani_aggregate_area": area,
+                       "dominant_risk_consequence": dominant_consequence,
+                       "defuzzification_method": "CENTROID"})
         results.append(result)
     out = pd.concat([out.reset_index(drop=True), pd.DataFrame(results)], axis=1)
     stage_dir = Path(stage_dir); out.to_csv(stage_dir / "06_rule_evaluation.csv", index=False)
@@ -403,6 +490,7 @@ def run_stage6(memberships: pd.DataFrame, stage_dir: Path, config_dir: Path):
                              "max_firing_strength": float(out[f"firing_{rid}"].max())} for rid in rules["rule_id"]])
     summary.to_csv(stage_dir / "06_rule_firing_summary.csv", index=False)
     constraints.to_csv(stage_dir / "06_action_constraints_used.csv", index=False)
+    output_definitions.to_csv(stage_dir / "06_output_membership_configuration_used.csv", index=False)
     stage6_rule_outputs(out, catalog, summary, stage_dir)
     return out, catalog, summary
 
@@ -481,14 +569,21 @@ def run_stage7(queue: pd.DataFrame, events: pd.DataFrame, evaluated: pd.DataFram
                                       daily["queue_area_reduction_percent"].median(),
                                       100 * daily["queue_area_reduction_percent"].gt(0).mean()]})
     stage_dir = Path(stage_dir)
+    stage_dir.mkdir(parents=True, exist_ok=True)
+    for obsolete_name in [
+        "07_full_day_baseline_vs_intervention.csv",
+        "07_accepted_intervention_events.csv",
+        "07_daily_validation_by_port.csv",
+        "07_overall_intervention_validation.csv",
+        "07_intervention_validation_dashboard.html",
+    ]:
+        obsolete = stage_dir / obsolete_name
+        if obsolete.exists():
+            obsolete.unlink()
     sim.to_csv(stage_dir / "07_scenario_baseline_vs_actions.csv", index=False)
-    sim.to_csv(stage_dir / "07_full_day_baseline_vs_intervention.csv", index=False)
     accepted.to_csv(stage_dir / "07_accepted_operational_recommendations.csv", index=False)
-    accepted.to_csv(stage_dir / "07_accepted_intervention_events.csv", index=False)
     effects.to_csv(stage_dir / "07_queue_service_intervention_events.csv", index=False)
     daily.to_csv(stage_dir / "07_daily_scenario_by_port.csv", index=False)
-    daily.to_csv(stage_dir / "07_daily_validation_by_port.csv", index=False)
     overall.to_csv(stage_dir / "07_overall_scenario_evaluation.csv", index=False)
-    overall.to_csv(stage_dir / "07_overall_intervention_validation.csv", index=False)
     stage7_intervention_outputs(sim, accepted, effects, daily, overall, stage_dir)
     return sim, accepted, effects, daily, overall
