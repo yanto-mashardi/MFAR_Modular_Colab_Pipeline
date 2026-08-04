@@ -76,7 +76,12 @@ benar-benar digunakan.
 
 - Stage 01–02 membagi lintasan berdasarkan MMSI, tanggal, episode perjalanan,
   gap waktu, dan loncatan spasial. Peta memeriksa ID JavaScript, jumlah
-  titik/segmen, tile layer, serta bounds sebelum dinyatakan berhasil.
+  titik/segmen, tile layer, WMS batimetri, kontrol layer, serta bounds sebelum
+  dinyatakan berhasil. Basemap utama memakai Esri World Ocean; layer GEBCO_2026,
+  label/kedalaman laut, OpenStreetMap fallback, lintasan, titik AIS, terminal,
+  dan titik muat dapat dipilih secara terpisah. GEBCO adalah grid global 15
+  arc-second untuk visualisasi penelitian dan bukan untuk navigasi atau
+  keselamatan pelayaran.
 - Stage 03 mengestimasi turnaround dan reliabilitas per kapal dari episode
   sandar terdahulu; 40 menit berfungsi sebagai fallback saat riwayat belum
   tersedia.
