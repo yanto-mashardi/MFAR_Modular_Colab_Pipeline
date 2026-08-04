@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 import pandas as pd
 
 from src.mfar_core import _calibration_cutoff, _earliest_berth_slot, run_stage6
-from src.mfar_maps import segment_trajectories
+from src.mfar_maps import audit_folium_html, build_validation_map, segment_trajectories
 from src.mfar_visuals import _dynamic_explorer
 
 
@@ -39,6 +39,26 @@ class AuditedPipelineTests(unittest.TestCase):
         })
         segmented = segment_trajectories(frame, "timestamp", max_gap_min=20, max_jump_nm=1.5)
         self.assertEqual(segmented["map_segment_id"].nunique(), 3)
+
+    def test_map_contains_selectable_ocean_and_bathymetry_layers(self):
+        frame = pd.DataFrame({
+            "mmsi": [1, 1],
+            "timestamp": pd.to_datetime(["2026-03-01 10:00", "2026-03-01 10:05"]),
+            "latitude": [1.40, 1.401],
+            "longitude": [102.14, 102.141],
+        })
+        berths = pd.read_csv(ROOT / "config" / "terminal_berths.csv")
+        with TemporaryDirectory() as tmp:
+            path, _, audit = build_validation_map(
+                frame, berths, Path(tmp) / "ocean-map.html", "timestamp"
+            )
+            html = path.read_text(encoding="utf-8")
+        self.assertEqual(audit["status"], "PASS")
+        self.assertTrue(audit["has_ocean_basemap"])
+        self.assertTrue(audit["has_ocean_reference"])
+        self.assertTrue(audit["has_gebco_2026"])
+        self.assertIn("Terminal dan titik muat", html)
+        self.assertIn("bukan untuk navigasi", html.lower())
 
     def test_every_rule_antecedent_is_configured(self):
         memberships = pd.read_csv(ROOT / "config" / "membership_parameters.csv")
