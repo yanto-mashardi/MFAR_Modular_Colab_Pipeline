@@ -10,6 +10,23 @@ import numpy as np
 import pandas as pd
 
 
+ESRI_OCEAN_BASE = (
+    "https://services.arcgisonline.com/ArcGIS/rest/services/"
+    "Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
+)
+ESRI_OCEAN_REFERENCE = (
+    "https://services.arcgisonline.com/ArcGIS/rest/services/"
+    "Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}"
+)
+GEBCO_2026_WMS = "https://wms.gebco.net/2026/mapserv?"
+GEBCO_2026_LAYER = "gebco_2026_2"
+ESRI_OCEAN_ATTRIBUTION = (
+    "Tiles &copy; Esri; data: Esri, Garmin, GEBCO, NOAA NGDC, "
+    "and other contributors"
+)
+GEBCO_ATTRIBUTION = "Bathymetry: GEBCO Compilation Group (2026), GEBCO_2026 Grid"
+
+
 def _haversine_nm(lat1, lon1, lat2, lon2):
     lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
     dlat, dlon = lat2 - lat1, lon2 - lon1
@@ -55,6 +72,7 @@ def audit_folium_html(path: Path, expected_points: int, expected_segments: int) 
     circle_count = text.count("L.circleMarker(")
     polyline_count = text.count("L.polyline(")
     tile_count = text.count("L.tileLayer(")
+    wms_count = text.count("L.tileLayer.wms(")
     checks = {
         "html_bytes": Path(path).stat().st_size,
         "declared_js_objects": len(declared),
@@ -62,14 +80,32 @@ def audit_folium_html(path: Path, expected_points: int, expected_segments: int) 
         "rendered_point_layers": circle_count,
         "rendered_polyline_layers": polyline_count,
         "tile_layers": tile_count,
+        "wms_layers": wms_count,
+        "has_ocean_basemap": "World_Ocean_Base" in text,
+        "has_ocean_reference": "World_Ocean_Reference" in text,
+        "has_gebco_2026": GEBCO_2026_WMS in text and GEBCO_2026_LAYER in text,
+        "has_navigation_disclaimer": "bukan untuk navigasi" in text.lower(),
+        "has_layer_control": "L.control.layers(" in text,
         "expected_sampled_points": int(expected_points),
         "expected_track_segments": int(expected_segments),
     }
     failures = []
     if duplicate_ids:
         failures.append(f"{duplicate_ids} JavaScript IDs are duplicated")
-    if tile_count < 1:
-        failures.append("no basemap tile layer")
+    if tile_count < 3:
+        failures.append("ocean basemap, reference labels, or fallback basemap is missing")
+    if wms_count < 1:
+        failures.append("GEBCO bathymetry WMS layer is missing")
+    if not checks["has_ocean_basemap"]:
+        failures.append("Esri World Ocean Base is missing")
+    if not checks["has_ocean_reference"]:
+        failures.append("Esri World Ocean Reference is missing")
+    if not checks["has_gebco_2026"]:
+        failures.append("explicit GEBCO 2026 bathymetry is missing")
+    if not checks["has_navigation_disclaimer"]:
+        failures.append("navigation-safety disclaimer is missing")
+    if not checks["has_layer_control"]:
+        failures.append("layer control is missing")
     if circle_count < expected_points:
         failures.append(f"only {circle_count}/{expected_points} point layers")
     if polyline_count < expected_segments:
@@ -97,6 +133,8 @@ def build_validation_map(
 ) -> tuple[Path, pd.DataFrame, dict]:
     """Create a map whose lines never connect unrelated voyages or days."""
     import folium
+    from branca.element import Element
+    from folium.plugins import Fullscreen, MeasureControl
 
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -110,17 +148,78 @@ def build_validation_map(
         points = segmented.copy()
 
     center = [float(segmented["latitude"].median()), float(segmented["longitude"].median())]
-    fmap = folium.Map(location=center, zoom_start=12, tiles="OpenStreetMap", control_scale=True)
-    berth_layer = folium.FeatureGroup(name="Dermaga", show=True)
-    for _, berth in berths.iterrows():
+    fmap = folium.Map(location=center, zoom_start=12, tiles=None, control_scale=True)
+    folium.TileLayer(
+        tiles=ESRI_OCEAN_BASE,
+        name="Peta laut · Esri Ocean Base",
+        attr=ESRI_OCEAN_ATTRIBUTION,
+        overlay=False,
+        control=True,
+        show=True,
+        max_native_zoom=9,
+        max_zoom=16,
+    ).add_to(fmap)
+    folium.TileLayer(
+        tiles="OpenStreetMap",
+        name="Peta jalan · OpenStreetMap (fallback)",
+        overlay=False,
+        control=True,
+        show=False,
+    ).add_to(fmap)
+    folium.raster_layers.WmsTileLayer(
+        url=GEBCO_2026_WMS,
+        layers=GEBCO_2026_LAYER,
+        name="Batimetri berwarna · GEBCO 2026",
+        attr=GEBCO_ATTRIBUTION,
+        fmt="image/png",
+        transparent=True,
+        overlay=True,
+        control=True,
+        show=True,
+        opacity=0.62,
+        version="1.3.0",
+    ).add_to(fmap)
+    folium.TileLayer(
+        tiles=ESRI_OCEAN_REFERENCE,
+        name="Label dan kedalaman laut · Esri",
+        attr=ESRI_OCEAN_ATTRIBUTION,
+        overlay=True,
+        control=True,
+        show=True,
+        max_native_zoom=9,
+        max_zoom=16,
+    ).add_to(fmap)
+
+    berth_layer = folium.FeatureGroup(name="Terminal dan titik muat", show=True)
+    for port_id, terminal in berths.groupby("port_id", sort=False):
+        terminal_lat = float(pd.to_numeric(terminal["latitude"], errors="coerce").mean())
+        terminal_lon = float(pd.to_numeric(terminal["longitude"], errors="coerce").mean())
         folium.Marker(
+            [terminal_lat, terminal_lon],
+            tooltip=f"Terminal {port_id}",
+            popup=(f"<b>Terminal {port_id}</b><br>Lokasi pusat dari titik "
+                   "dermaga pada konfigurasi penelitian."),
+            icon=folium.Icon(color="darkblue", icon="anchor", prefix="fa"),
+        ).add_to(berth_layer)
+    for _, berth in berths.iterrows():
+        folium.CircleMarker(
             [float(berth["latitude"]), float(berth["longitude"])],
-            tooltip=str(berth["berth_id"]),
-            popup=f"{berth['port_id']} · {berth['berth_id']}",
+            radius=6,
+            color="#f9a825",
+            weight=2,
+            fill=True,
+            fill_color="#ffeb3b",
+            fill_opacity=0.92,
+            tooltip=f"Titik muat · {berth['berth_id']}",
+            popup=(f"<b>{berth['port_id']} · {berth['berth_id']}</b><br>"
+                   f"Koordinat: {float(berth['latitude']):.6f}, "
+                   f"{float(berth['longitude']):.6f}<br>"
+                   f"Radius okupansi model: {float(berth['occupancy_radius_nm']):.2f} NM"),
         ).add_to(berth_layer)
     berth_layer.add_to(fmap)
 
     colors = ["#0b5fa5", "#ef6c00", "#7b1fa2", "#00897b", "#c62828", "#455a64"]
+    track_layer = folium.FeatureGroup(name="Lintasan kapal", show=True)
     segment_count = 0
     for (mmsi, segment_id), group in segmented.groupby(["mmsi", "map_segment_id"], sort=False):
         if len(group) < 2:
@@ -132,9 +231,11 @@ def build_validation_map(
             weight=3,
             opacity=0.75,
             tooltip=f"MMSI {mmsi} · segmen {segment_id}",
-        ).add_to(fmap)
+        ).add_to(track_layer)
         segment_count += 1
+    track_layer.add_to(fmap)
 
+    point_layer = folium.FeatureGroup(name="Titik hasil tahap", show=True)
     for _, row in points.iterrows():
         folium.CircleMarker(
             [float(row["latitude"]), float(row["longitude"])],
@@ -144,10 +245,12 @@ def build_validation_map(
             fill=True,
             fill_opacity=0.75,
             tooltip=f"MMSI {row['mmsi']} · {row[time_col]}",
-        ).add_to(fmap)
+        ).add_to(point_layer)
+    point_layer.add_to(fmap)
 
     original_count = 0
     if original is not None and not original.empty:
+        original_layer = folium.FeatureGroup(name="Titik AIS asli", show=True)
         source = original.dropna(subset=["latitude", "longitude"]).copy()
         if len(source) > max_original_points:
             source = source.iloc[np.linspace(0, len(source) - 1, max_original_points).astype(int)]
@@ -156,8 +259,25 @@ def build_validation_map(
                 [float(row["latitude"]), float(row["longitude"])], radius=1.5,
                 color="#333333", weight=1, fill=True, fill_opacity=0.55,
                 tooltip=f"AIS asli · {row.get(original_time_col, '')}",
-            ).add_to(fmap)
+            ).add_to(original_layer)
+        original_layer.add_to(fmap)
         original_count = len(source)
+
+    note = Element("""
+    <div style="position:fixed;bottom:28px;left:10px;z-index:9999;max-width:310px;
+                background:rgba(255,255,255,.94);padding:9px 11px;border:1px solid #667;
+                border-radius:5px;font:12px/1.35 Arial;color:#17233b">
+      <b>Peta laut dan batimetri</b><br>
+      Aktifkan “Batimetri berwarna · GEBCO 2026” pada kontrol layer. Nilai elevasi
+      GEBCO menggunakan meter; nilai negatif berada di bawah muka laut. Resolusi
+      grid global 15 arc-second tidak mewakili survei hidrografi rinci di alur sempit.
+      <b>Visualisasi ini bukan untuk navigasi atau keselamatan pelayaran.</b>
+    </div>
+    """)
+    fmap.get_root().html.add_child(note)
+    Fullscreen(position="topleft", title="Layar penuh", title_cancel="Keluar layar penuh").add_to(fmap)
+    MeasureControl(position="topleft", primary_length_unit="nautical-miles").add_to(fmap)
+    folium.LatLngPopup().add_to(fmap)
 
     fmap.fit_bounds([
         [float(segmented["latitude"].min()), float(segmented["longitude"].min())],
