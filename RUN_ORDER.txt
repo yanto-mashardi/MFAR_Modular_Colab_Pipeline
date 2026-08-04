@@ -32,5 +32,5 @@ Jalankan dari checkout repository, berurutan tanpa melewati tahap:
   output : seluruh artefak 07_* di stage_07
 
 DRIVE_ROOT adalah folder bernama tepat In_Out_MFAR_Modular_Colab_Pipeline.
-Gunakan MFAR_GDRIVE_ROOT bila lokasi mount/sinkronisasi tidak standar.
+Gunakan MFAR_GDRIVE_ROOT bila lokasi mount/sinkronisasi tidak standar.\nPath Colab aktual proyek ini:\n/content/drive/MyDrive/Post Doctor/In_Out_MFAR_Modular_Colab_Pipeline
 Folder ID/URL Google Drive bukan filesystem path.
