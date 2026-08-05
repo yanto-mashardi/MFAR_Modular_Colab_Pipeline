@@ -1,0 +1,128 @@
+name: MFAR baseline reproducibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - revision/q1-logic-mfar
+    paths:
+      - .github/workflows/baseline-reproducibility.yml
+      - config/**
+      - notebooks/**
+      - src/**
+      - tests/**
+      - tools/create_baseline_manifest.py
+      - validation/baseline/**
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-repeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      BASELINE_SHA: 125725c10081c4b3511ffc5aaf1b8e0836434bd8
+      BASELINE_BRANCH: revision/q1-logic-mfar
+      AIS_FILE_ID: 1anvGtFRU30yeNr3fTuId2XA690oGFGaA
+      ARRIVAL_FILE_ID: 1F6J240iN2eQyRJiTAtvKL5mh7YMvVSnk
+
+    steps:
+      - name: Checkout revision branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install gdown
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Download immutable raw-input copies
+        run: |
+          mkdir -p /tmp/mfar_source/data_raw
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import gdown
+
+          targets = {
+              os.environ["AIS_FILE_ID"]: Path("/tmp/mfar_source/data_raw/ais_raw.csv"),
+              os.environ["ARRIVAL_FILE_ID"]: Path("/tmp/mfar_source/data_raw/vehicle_arrival_rate_30min.csv"),
+          }
+          for file_id, path in targets.items():
+              result = gdown.download(id=file_id, output=str(path), quiet=False)
+              if result is None or not path.is_file() or path.stat().st_size == 0:
+                  raise RuntimeError(f"Google Drive input could not be downloaded: {file_id}")
+          PY
+
+      - name: Execute Stage 01-07 twice in isolated roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          NOTEBOOKS=(
+            01_AIS_Input_and_Cleaning.ipynb
+            02_Time_Grid_and_State_Preparation.ipynb
+            03_Monitoring_State.ipynb
+            04_No_Intervention_Forecast.ipynb
+            05_Fuzzification.ipynb
+            06_Rule_Evaluation.ipynb
+            07_Candidate_Action.ipynb
+          )
+
+          run_pipeline() {
+            local root="$1"
+            mkdir -p "$root/data_raw" "$root/executed_notebooks"
+            cp /tmp/mfar_source/data_raw/*.csv "$root/data_raw/"
+            for notebook in "${NOTEBOOKS[@]}"; do
+              echo "Executing $notebook in $root"
+              MFAR_CODE_ROOT="$GITHUB_WORKSPACE" \
+              MFAR_GDRIVE_ROOT="$root" \
+              PYTHONPATH="$GITHUB_WORKSPACE" \
+              jupyter nbconvert --to notebook --execute \
+                "$GITHUB_WORKSPACE/notebooks/$notebook" \
+                --output "$notebook" \
+                --output-dir "$root/executed_notebooks" \
+                --ExecutePreprocessor.timeout=-1 \
+                --ExecutePreprocessor.kernel_name=python3
+            done
+            python tools/create_baseline_manifest.py snapshot \
+              --repo-root "$GITHUB_WORKSPACE" \
+              --drive-root "$root" \
+              --output-dir "$root/baseline_evidence" \
+              --baseline-sha "$BASELINE_SHA" \
+              --branch "$BASELINE_BRANCH"
+          }
+
+          run_pipeline /tmp/mfar_run_a
+          run_pipeline /tmp/mfar_run_b
+
+      - name: Verify repeatability
+        run: |
+          python tools/create_baseline_manifest.py compare \
+            --first /tmp/mfar_run_a/baseline_evidence/baseline_manifest.json \
+            --second /tmp/mfar_run_b/baseline_evidence/baseline_manifest.json \
+            --output /tmp/mfar_repeatability_report.json \
+            --tolerance 1e-12 \
+            --require-canonical-hashes
+
+      - name: Upload baseline evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: mfar-baseline-reproducibility
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            /tmp/mfar_run_a/baseline_evidence/
+            /tmp/mfar_run_b/baseline_evidence/
+            /tmp/mfar_repeatability_report.json

@@ -1,0 +1,244 @@
+{
+  "schema_version": "1.0",
+  "baseline_name": "MFAR_V1_RETROSPECTIVE_EXISTING_DRIVE_ARTIFACTS",
+  "frozen_at_utc": "2026-08-06T00:00:00+00:00",
+  "repository": {
+    "name": "yanto-mashardi/MFAR_Modular_Colab_Pipeline",
+    "baseline_commit_sha": "125725c10081c4b3511ffc5aaf1b8e0836434bd8",
+    "revision_branch": "revision/q1-logic-mfar"
+  },
+  "source": {
+    "drive_folder_id": "1CrvswSCmR0_Tr7mWYufrOXYgCMdRQpgq",
+    "capture_scope": "raw inputs and canonical Stage 01-07 CSV artifacts"
+  },
+  "capture_runtime": {
+    "python_version": "3.13.5 (main, May  5 2026, 21:05:52) [GCC 14.2.0]",
+    "python_implementation": "CPython",
+    "platform": "Linux-6.18.35-x86_64-with-glibc2.41",
+    "package_versions": {
+      "pandas": "2.2.3",
+      "numpy": "2.3.5",
+      "matplotlib": "3.10.8",
+      "folium": "0.20.0",
+      "ipywidgets": null,
+      "plotly": "6.5.2",
+      "openpyxl": "3.1.5",
+      "nbconvert": "7.17.1",
+      "jupyter": null
+    }
+  },
+  "capture_runtime_note": "This runtime describes artifact inspection. The earlier Colab stage metadata did not store original package versions; fresh reproduction manifests record them.",
+  "integrity": {
+    "configuration_snapshot_matches_active": true,
+    "scientific_algorithms_modified": false,
+    "scientific_parameters_modified": false
+  },
+  "inputs": {
+    "data_raw/ais_raw.csv": {
+      "size_bytes": 7564502,
+      "row_count": 32358,
+      "sha256": "a43f060a020aca5617a766d5ce7e3473c2b99c0ee688296ce69740af6a464c9c"
+    },
+    "data_raw/vehicle_arrival_rate_30min.csv": {
+      "size_bytes": 1829,
+      "row_count": 68,
+      "sha256": "1ca127b3fddb5c76e176f20f4632b115d172e9f37ec6f95dbb9a9e96fa235177"
+    }
+  },
+  "configuration": {
+    "config/action_constraints.csv": {
+      "size_bytes": 1528,
+      "row_count": 29,
+      "sha256": "94d5dea15b4649d2757783a0337d0c305efff75ade9673297302603193334e62"
+    },
+    "config/fuzzy_rules.csv": {
+      "size_bytes": 1016,
+      "row_count": 11,
+      "sha256": "3c164cedc4be9702d453db1784a70ea241c82917f634c8e7df1b4350935f59e3"
+    },
+    "config/membership_parameters.csv": {
+      "size_bytes": 2679,
+      "row_count": 26,
+      "sha256": "8cb3e19aa9c6bd51502f435b5ca628ad67fc042be69bb0ede713fda80a3cc51c"
+    },
+    "config/pipeline_parameters.csv": {
+      "size_bytes": 489,
+      "row_count": 20,
+      "sha256": "a54834683e50da9662a9f175e8fb4fe0d6d0a59d4e4aaa5f651a9afaf548c4a5"
+    },
+    "config/terminal_berths.csv": {
+      "size_bytes": 259,
+      "row_count": 4,
+      "sha256": "945dc24986aec9026f42a2042b05c36e1edba640b77598e081af65bd8b15eb3c"
+    },
+    "config/vessel_profiles.csv": {
+      "size_bytes": 328,
+      "row_count": 4,
+      "sha256": "e58677b93633d0f468e86f8ceeb405a6b1b449d07d7c2e9ebb32eaeca89e91ac"
+    }
+  },
+  "canonical_artifacts": {
+    "stage_output/stage_01/01_ais_clean.csv": {
+      "size_bytes": 9059381,
+      "row_count": 32245,
+      "sha256": "418ae34824d4071f18eb9cf20840c36e94fd61c86e0f353ed80b29c015f1ea4a"
+    },
+    "stage_output/stage_01/01_ais_rejected.csv": {
+      "size_bytes": 31642,
+      "row_count": 113,
+      "sha256": "3a4a4c8a1271553e78f9dcd3d72bf97da8d4fbc473b0be6140bbc6d371e4010d"
+    },
+    "stage_output/stage_02/02_vessel_interpolated_grid.csv": {
+      "size_bytes": 21193303,
+      "row_count": 40328,
+      "sha256": "5c050e0672ea4fc73dddf6793b36a735af8a160508b89df771603f8e8e2c6482"
+    },
+    "stage_output/stage_02/02_interpolation_rejected_grid.csv": {
+      "size_bytes": 8502518,
+      "row_count": 61408,
+      "sha256": "99c8a44c36a849fc5f4a90a657408af524b28623ef721c862b3b70f3069b8a23"
+    },
+    "stage_output/stage_03/03_input_state_enhanced.csv": {
+      "size_bytes": 25514733,
+      "row_count": 40328,
+      "sha256": "84096c2f0df2bc57301c47a808390d05569551addbc19698caf87af689d10333"
+    },
+    "stage_output/stage_03/03_berth_episode_history.csv": {
+      "size_bytes": 222151,
+      "row_count": 1986,
+      "sha256": "bb0921418f4d64eb060c8601076dc0cda7e937ab239e0f05a0efbd7ead10be05"
+    },
+    "stage_output/stage_04/04_fuzzy_input.csv": {
+      "size_bytes": 749948,
+      "row_count": 703,
+      "sha256": "6109572b638e0c72d2f1f9b0301f0cff27e4a0d7f8484037868dd7fcac61bb06"
+    },
+    "stage_output/stage_04/04_temporal_holdout_validation.csv": {
+      "size_bytes": 108769,
+      "row_count": 674,
+      "sha256": "04d79a64f8673763867600d4be35727e194e41d2c68b27949dc9945c0348b093"
+    },
+    "stage_output/stage_05/05_fuzzy_memberships.csv": {
+      "size_bytes": 850732,
+      "row_count": 703,
+      "sha256": "da40cb1fb1b4efe4b67f0919449f4217ec3a5f0b15dbfa11bb33c2ea49add2e4"
+    },
+    "stage_output/stage_06/06_rule_evaluation.csv": {
+      "size_bytes": 998166,
+      "row_count": 703,
+      "sha256": "d884b642146767e90fd8138cb55def5871399daff7551d94447d9ce3d6a283de"
+    },
+    "stage_output/stage_07/07_accepted_operational_recommendations.csv": {
+      "size_bytes": 388118,
+      "row_count": 252,
+      "sha256": "0e16599df0f287f8b49f754dd4a914222de9aa41b1c43c44f809c517ec2931af"
+    },
+    "stage_output/stage_07/07_queue_service_intervention_events.csv": {
+      "size_bytes": 14477,
+      "row_count": 165,
+      "sha256": "3d4e6161508502494b7abd6ffcccb043113ec4b882b08b217058c63f22bafae2"
+    },
+    "stage_output/stage_07/07_daily_scenario_by_port.csv": {
+      "size_bytes": 7469,
+      "row_count": 62,
+      "sha256": "960d20683e44be215096f54578d7adae2dafe55f3963d99eadbfb0a38f79330d"
+    },
+    "stage_output/stage_07/07_overall_scenario_evaluation.csv": {
+      "size_bytes": 320,
+      "row_count": 8,
+      "sha256": "0ab1f7d95e6d79fddf6ca58c1547597d975c8dd7a0df12a9f3449c5dc490c846"
+    },
+    "stage_output/stage_07/07_scenario_baseline_vs_actions.csv": {
+      "size_bytes": 2014196,
+      "row_count": 12648,
+      "sha256": "98e7558900d1ce8077cee7afadf675937e0e092e85ecb35048d1fc03e89316ca"
+    }
+  },
+  "key_metrics": {
+    "funnel": {
+      "raw_ais_rows": 32358,
+      "vehicle_arrival_profile_rows": 68,
+      "clean_ais_rows": 32245,
+      "rejected_ais_rows": 113,
+      "grid_state_rows": 40328,
+      "rejected_grid_rows": 61408,
+      "enhanced_state_rows": 40328,
+      "berth_episode_rows": 1986,
+      "decision_case_rows": 703,
+      "eta_validation_rows": 674,
+      "membership_rows": 703,
+      "rule_evaluation_rows": 703,
+      "accepted_recommendation_rows": 252,
+      "queue_effect_event_rows": 165,
+      "day_terminal_rows": 62,
+      "scenario_interval_rows": 12648
+    },
+    "stage_02_state_counts": {
+      "SAILING": 15938,
+      "AT_BERTH_BENGKALIS": 11350,
+      "AT_BERTH_PAKNING": 8820,
+      "APPROACHING_PAKNING": 1632,
+      "APPROACHING_BENGKALIS": 1119,
+      "DEPARTING_PAKNING": 740,
+      "DEPARTING_BENGKALIS": 729
+    },
+    "stage_03": {
+      "turnaround_median_min": 45.0,
+      "turnaround_p90_min": 100.0,
+      "turnaround_mean_min": 81.97129909365559,
+      "turnaround_max_min": 21660.0
+    },
+    "stage_04": {
+      "eta_mae_min": 16.817507418397625,
+      "eta_rmse_min": 20.192416386485856,
+      "eta_median_absolute_error_min": 15.0,
+      "eta_bias_min": 12.915430267062314,
+      "eta_within_10_min_fraction": 0.39020771513353114,
+      "eta_within_20_min_fraction": 0.7136498516320475,
+      "eta_within_30_min_fraction": 0.9094955489614244
+    },
+    "stage_05": {
+      "membership_column_count": 22,
+      "membership_missing_cells": 0,
+      "membership_below_zero_cells": 0,
+      "membership_above_one_cells": 0
+    },
+    "stage_06": {
+      "risk_score_mean": 37.509819576734095,
+      "risk_score_median": 35.012584443187144,
+      "risk_score_max": 88.61042155183054,
+      "zero_coverage_cases": 247,
+      "selected_action_counts": {
+        "NO_INTERVENTION": 360,
+        "DEPART_NOW": 173,
+        "ALERT_OPERATOR": 145,
+        "ADD_VESSEL": 24,
+        "MAINTAIN_SPEED": 1
+      },
+      "dominant_consequence_counts": {
+        "Normal": 345,
+        "Warning": 292,
+        "Watch": 40,
+        "Critical": 26
+      }
+    },
+    "stage_07": {
+      "queue_area_reduction_median_percent": 1.2214200426596555,
+      "queue_area_reduction_mean_percent": 1.2905446227394044,
+      "day_terminal_improved": 46,
+      "day_terminal_unchanged": 11,
+      "day_terminal_worsened": 5,
+      "queue_area_reduction_min_percent": -8.016121515264901,
+      "queue_area_reduction_max_percent": 5.165165928836275,
+      "critical_duration_baseline_min": 31545,
+      "critical_duration_scenario_min": 31750,
+      "critical_duration_change_min": 205,
+      "accepted_action_counts": {
+        "DEPART_NOW": 154,
+        "ALERT_OPERATOR": 86,
+        "ADD_VESSEL": 11,
+        "MAINTAIN_SPEED": 1
+      }
+    }
+  }
+}

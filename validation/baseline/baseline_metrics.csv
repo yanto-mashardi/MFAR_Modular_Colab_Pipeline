@@ -1,0 +1,53 @@
+stage,metric,value,unit,source
+FUNNEL,raw_ais_rows,32358.0,rows,canonical CSV
+FUNNEL,vehicle_arrival_profile_rows,68.0,rows,canonical CSV
+FUNNEL,clean_ais_rows,32245.0,rows,canonical CSV
+FUNNEL,rejected_ais_rows,113.0,rows,canonical CSV
+FUNNEL,grid_state_rows,40328.0,rows,canonical CSV
+FUNNEL,rejected_grid_rows,61408.0,rows,canonical CSV
+FUNNEL,enhanced_state_rows,40328.0,rows,canonical CSV
+FUNNEL,berth_episode_rows,1986.0,rows,canonical CSV
+FUNNEL,decision_case_rows,703.0,rows,canonical CSV
+FUNNEL,eta_validation_rows,674.0,rows,canonical CSV
+FUNNEL,membership_rows,703.0,rows,canonical CSV
+FUNNEL,rule_evaluation_rows,703.0,rows,canonical CSV
+FUNNEL,accepted_recommendation_rows,252.0,rows,canonical CSV
+FUNNEL,queue_effect_event_rows,165.0,rows,canonical CSV
+FUNNEL,day_terminal_rows,62.0,rows,canonical CSV
+FUNNEL,scenario_interval_rows,12648.0,rows,canonical CSV
+02,state_SAILING,15938.0,rows,02_vessel_interpolated_grid.csv
+02,state_AT_BERTH_BENGKALIS,11350.0,rows,02_vessel_interpolated_grid.csv
+02,state_AT_BERTH_PAKNING,8820.0,rows,02_vessel_interpolated_grid.csv
+02,state_APPROACHING_PAKNING,1632.0,rows,02_vessel_interpolated_grid.csv
+02,state_APPROACHING_BENGKALIS,1119.0,rows,02_vessel_interpolated_grid.csv
+02,state_DEPARTING_PAKNING,740.0,rows,02_vessel_interpolated_grid.csv
+02,state_DEPARTING_BENGKALIS,729.0,rows,02_vessel_interpolated_grid.csv
+03,turnaround_median_min,45.0,minutes,03_berth_episode_history.csv
+03,turnaround_p90_min,100.0,minutes,03_berth_episode_history.csv
+03,turnaround_mean_min,81.97129909365559,minutes,03_berth_episode_history.csv
+03,turnaround_max_min,21660.0,minutes,03_berth_episode_history.csv
+04,eta_mae_min,16.817507418397625,minutes,04_temporal_holdout_validation.csv
+04,eta_rmse_min,20.192416386485856,minutes,04_temporal_holdout_validation.csv
+04,eta_median_absolute_error_min,15.0,minutes,04_temporal_holdout_validation.csv
+04,eta_bias_min,12.915430267062314,minutes,04_temporal_holdout_validation.csv
+04,eta_within_10_min_fraction,0.39020771513353114,fraction,04_temporal_holdout_validation.csv
+04,eta_within_20_min_fraction,0.7136498516320475,fraction,04_temporal_holdout_validation.csv
+04,eta_within_30_min_fraction,0.9094955489614244,fraction,04_temporal_holdout_validation.csv
+05,membership_column_count,22.0,count,05_fuzzy_memberships.csv
+05,membership_missing_cells,0.0,count,05_fuzzy_memberships.csv
+05,membership_below_zero_cells,0.0,count,05_fuzzy_memberships.csv
+05,membership_above_one_cells,0.0,count,05_fuzzy_memberships.csv
+06,risk_score_mean,37.509819576734095,score,06_rule_evaluation.csv
+06,risk_score_median,35.012584443187144,score,06_rule_evaluation.csv
+06,risk_score_max,88.61042155183054,score,06_rule_evaluation.csv
+06,zero_coverage_cases,247.0,cases,06_rule_evaluation.csv
+07,queue_area_reduction_median_percent,1.2214200426596555,percent,07_daily_scenario_by_port.csv
+07,queue_area_reduction_mean_percent,1.2905446227394044,percent,07_daily_scenario_by_port.csv
+07,day_terminal_improved,46.0,cases,07_daily_scenario_by_port.csv
+07,day_terminal_unchanged,11.0,cases,07_daily_scenario_by_port.csv
+07,day_terminal_worsened,5.0,cases,07_daily_scenario_by_port.csv
+07,queue_area_reduction_min_percent,-8.016121515264901,percent,07_daily_scenario_by_port.csv
+07,queue_area_reduction_max_percent,5.165165928836275,percent,07_daily_scenario_by_port.csv
+07,critical_duration_baseline_min,31545.0,minutes,07_daily_scenario_by_port.csv
+07,critical_duration_scenario_min,31750.0,minutes,07_daily_scenario_by_port.csv
+07,critical_duration_change_min,205.0,minutes,07_daily_scenario_by_port.csv
