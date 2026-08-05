@@ -12,7 +12,7 @@ on:
       - src/**
       - tests/**
       - tools/create_baseline_manifest.py
-      - validation/baseline/**
+      - validation/baseline/config_snapshot/**
 
 permissions:
   contents: read
@@ -24,6 +24,7 @@ jobs:
     env:
       BASELINE_SHA: 125725c10081c4b3511ffc5aaf1b8e0836434bd8
       BASELINE_BRANCH: revision/q1-logic-mfar
+      DRIVE_FOLDER_NAME: In_Out_MFAR_Modular_Colab_Pipeline
       AIS_FILE_ID: 1anvGtFRU30yeNr3fTuId2XA690oGFGaA
       ARRIVAL_FILE_ID: 1F6J240iN2eQyRJiTAtvKL5mh7YMvVSnk
 
@@ -82,6 +83,10 @@ jobs:
 
           run_pipeline() {
             local root="$1"
+            if [[ "$(basename "$root")" != "$DRIVE_FOLDER_NAME" ]]; then
+              echo "Invalid isolated root name: $root" >&2
+              exit 2
+            fi
             mkdir -p "$root/data_raw" "$root/executed_notebooks"
             cp /tmp/mfar_source/data_raw/*.csv "$root/data_raw/"
             for notebook in "${NOTEBOOKS[@]}"; do
@@ -104,14 +109,14 @@ jobs:
               --branch "$BASELINE_BRANCH"
           }
 
-          run_pipeline /tmp/mfar_run_a
-          run_pipeline /tmp/mfar_run_b
+          run_pipeline "/tmp/mfar_run_a/$DRIVE_FOLDER_NAME"
+          run_pipeline "/tmp/mfar_run_b/$DRIVE_FOLDER_NAME"
 
       - name: Verify repeatability
         run: |
           python tools/create_baseline_manifest.py compare \
-            --first /tmp/mfar_run_a/baseline_evidence/baseline_manifest.json \
-            --second /tmp/mfar_run_b/baseline_evidence/baseline_manifest.json \
+            --first "/tmp/mfar_run_a/$DRIVE_FOLDER_NAME/baseline_evidence/baseline_manifest.json" \
+            --second "/tmp/mfar_run_b/$DRIVE_FOLDER_NAME/baseline_evidence/baseline_manifest.json" \
             --output /tmp/mfar_repeatability_report.json \
             --tolerance 1e-12 \
             --require-canonical-hashes
@@ -123,6 +128,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           path: |
-            /tmp/mfar_run_a/baseline_evidence/
-            /tmp/mfar_run_b/baseline_evidence/
+            /tmp/mfar_run_a/In_Out_MFAR_Modular_Colab_Pipeline/baseline_evidence/
+            /tmp/mfar_run_b/In_Out_MFAR_Modular_Colab_Pipeline/baseline_evidence/
             /tmp/mfar_repeatability_report.json
