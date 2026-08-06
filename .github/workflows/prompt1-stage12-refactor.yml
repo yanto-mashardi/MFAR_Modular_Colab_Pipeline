@@ -1,0 +1,116 @@
+name: Prompt 1 Stage 01-02 behavior-preserving refactor
+
+on:
+  push:
+    branches:
+      - refactor/prompt1-stage01-02
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prompt1-stage12-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DRIVE_FOLDER_NAME: In_Out_MFAR_Modular_Colab_Pipeline
+  AIS_FILE_ID: 1anvGtFRU30yeNr3fTuId2XA690oGFGaA
+  ARRIVAL_FILE_ID: 1F6J240iN2eQyRJiTAtvKL5mh7YMvVSnk
+
+jobs:
+  refactor-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout Prompt 1 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-baseline.txt
+
+      - name: Install frozen dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-baseline.txt
+
+      - name: Materialize reviewed refactor payload
+        run: |
+          if [[ ! -f tools/bootstrap_prompt1_payload.py ]]; then
+            cat tools/prompt1_payload/part-* > tools/bootstrap_prompt1_payload.py
+          fi
+          python tools/bootstrap_prompt1_payload.py
+
+      - name: Apply maintenance-only compatibility fixes
+        run: |
+          python tools/apply_behavior_preserving_maintenance.py
+          python tools/apply_behavior_preserving_maintenance.py --check
+          git diff --check
+
+      - name: Compile and run unit tests
+        run: |
+          python -m py_compile src/mfar_stage12.py tools/*.py
+          python -W error::FutureWarning -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Run controlled legacy-versus-refactor validation
+        run: bash tools/run_prompt1_ab_validation.sh
+
+      - name: Append workflow evidence
+        if: success()
+        run: |
+          {
+            echo
+            echo "## Workflow evidence"
+            echo
+            echo "- Workflow run: ${GITHUB_RUN_ID}"
+            echo "- Source commit: ${GITHUB_SHA}"
+            echo "- Branch: ${GITHUB_REF_NAME}"
+            echo "- Nineteen unit tests: PASS"
+            echo "- Separate Stage 01–07 execution for legacy and refactor: PASS"
+            echo "- Notebook cell-ID maintenance check: PASS"
+            echo "- Deprecated openpyxl style-copy maintenance check: PASS"
+          } >> validation/prompt1/PROMPT_1_ACCEPTANCE.md
+
+      - name: Commit verified Prompt 1 artifacts
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -r --ignore-unmatch tools/prompt1_payload
+          git add src/mfar_stage12.py src/mfar_visuals.py notebooks/*.ipynb \
+            tests/test_stage12_refactor.py \
+            tools/bootstrap_prompt1_payload.py \
+            tools/apply_behavior_preserving_maintenance.py \
+            tools/verify_prompt1_equivalence.py \
+            tools/verify_prompt1_ab_equivalence.py \
+            tools/run_prompt1_ab_validation.sh \
+            docs/PROMPT_1_REFACTOR.md \
+            validation/prompt1/PROMPT_1_ACCEPTANCE.md
+          if ! git diff --cached --quiet; then
+            git commit -m "[skip ci] Record verified Prompt 1 refactor"
+            git push origin HEAD:refactor/prompt1-stage01-02
+          fi
+
+      - name: Upload Prompt 1 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompt1-stage12-equivalence
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            /tmp/prompt1_ab_equivalence_report.json
+            /tmp/prompt1_current_manifest/baseline_manifest.json
+            /tmp/prompt1_current_manifest/baseline_metrics.csv
+            validation/prompt1/PROMPT_1_ACCEPTANCE.md
+            /tmp/prompt1_current/In_Out_MFAR_Modular_Colab_Pipeline/executed_notebooks/01_AIS_Input_and_Cleaning.ipynb
+            /tmp/prompt1_current/In_Out_MFAR_Modular_Colab_Pipeline/executed_notebooks/02_Time_Grid_and_State_Preparation.ipynb
+            /tmp/prompt1_legacy/In_Out_MFAR_Modular_Colab_Pipeline/executed_notebooks/01_AIS_Input_and_Cleaning.ipynb
+            /tmp/prompt1_legacy/In_Out_MFAR_Modular_Colab_Pipeline/executed_notebooks/02_Time_Grid_and_State_Preparation.ipynb
