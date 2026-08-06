@@ -52,7 +52,10 @@ jobs:
 
       - name: Compile and run unit tests
         run: |
-          python -m py_compile src/mfar_prospective_forecast.py tools/verify_prompt3_prospective_epoch.py
+          python -m py_compile \
+            src/mfar_prospective_forecast.py \
+            src/mfar_prompt3_runtime.py \
+            tools/verify_prompt3_prospective_epoch.py
           python -W error::FutureWarning -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Download immutable raw inputs
