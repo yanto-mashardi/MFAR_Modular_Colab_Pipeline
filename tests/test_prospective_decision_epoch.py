@@ -2,10 +2,8 @@ import unittest
 
 import pandas as pd
 
-from src.mfar_prospective_forecast import (
-    attach_posthoc_validation,
-    build_prospective_decision_epochs,
-)
+from src.mfar_prompt3_runtime import attach_posthoc_validation
+from src.mfar_prospective_forecast import build_prospective_decision_epochs
 
 
 class ProspectiveDecisionEpochTests(unittest.TestCase):
@@ -33,6 +31,23 @@ class ProspectiveDecisionEpochTests(unittest.TestCase):
             "elapsed_berth_min": [0.0, 5.0, 10.0, 0.0],
         })
 
+    @staticmethod
+    def _episodes(release: str = "2026-03-01 10:40") -> pd.DataFrame:
+        return pd.DataFrame({
+            "mmsi": [1, 1],
+            "berth_episode_id": [1, 2],
+            "port_id": ["BENGKALIS", "PAKNING"],
+            "berth_entry_time": pd.to_datetime([
+                "2026-03-01 09:30", "2026-03-01 11:20",
+            ]),
+            "observed_end": pd.to_datetime([
+                "2026-03-01 10:35", "2026-03-01 11:55",
+            ]),
+            "observed_release_time": pd.to_datetime([
+                release, "2026-03-01 12:00",
+            ]),
+        })
+
     def _build(self, state: pd.DataFrame) -> pd.DataFrame:
         return build_prospective_decision_epochs(
             state,
@@ -42,6 +57,12 @@ class ProspectiveDecisionEpochTests(unittest.TestCase):
             operating_start_min=420,
             operating_end_min=1435,
         )
+
+    def _forecast_case(self) -> pd.DataFrame:
+        cases = self._build(self._state(40))
+        cases["predicted_eta"] = pd.Timestamp("2026-03-01 11:10")
+        cases["predicted_departure_time"] = pd.Timestamp("2026-03-01 10:20")
+        return cases
 
     def test_epoch_is_invariant_to_future_observed_departure(self):
         early = self._build(self._state(20))
@@ -67,31 +88,47 @@ class ProspectiveDecisionEpochTests(unittest.TestCase):
         self.assertEqual(cases.loc[0, "decision_time"], pd.Timestamp("2026-03-01 10:00"))
         self.assertEqual(cases.loc[0, "decision_trigger_source"], "PREDICTED_RELEASE_OVERDUE")
 
-    def test_observed_departure_is_attached_posthoc(self):
-        cases = self._build(self._state(40))
-        cases["predicted_eta"] = pd.Timestamp("2026-03-01 11:10")
-        cases["predicted_departure_time"] = pd.Timestamp("2026-03-01 10:20")
+    def test_observed_departure_is_attached_to_same_episode_posthoc(self):
         departures = pd.DataFrame({
             "mmsi": [1], "origin": ["BENGKALIS"],
             "baseline_departure_time": pd.to_datetime(["2026-03-01 10:40"]),
         })
-        episodes = pd.DataFrame({
-            "mmsi": [1], "port_id": ["PAKNING"],
-            "berth_entry_time": pd.to_datetime(["2026-03-01 11:20"]),
-        })
         validated, comparison = attach_posthoc_validation(
-            cases, departures, episodes,
+            self._forecast_case(), departures, self._episodes(),
             horizon_min=15,
-            departure_match_window_min=180,
+            departure_match_window_min=15,
             arrival_match_window_min=120,
         )
-        self.assertEqual(validated.loc[0, "departure_match_status"], "MATCHED_POSTHOC")
+        self.assertEqual(
+            validated.loc[0, "departure_match_status"],
+            "MATCHED_SAME_EPISODE_POSTHOC",
+        )
+        self.assertEqual(validated.loc[0, "departure_to_episode_release_min"], 0.0)
         self.assertEqual(
             validated.loc[0, "retrospective_reference_decision_time"],
             pd.Timestamp("2026-03-01 10:25"),
         )
         self.assertFalse(bool(validated.loc[0, "retrospective_reference_used_for_prediction"]))
         self.assertEqual(len(comparison), 1)
+
+    def test_later_trip_departure_is_not_used_for_current_episode(self):
+        departures = pd.DataFrame({
+            "mmsi": [1], "origin": ["BENGKALIS"],
+            "baseline_departure_time": pd.to_datetime(["2026-03-01 11:40"]),
+        })
+        validated, _ = attach_posthoc_validation(
+            self._forecast_case(), departures,
+            self._episodes(release="2026-03-01 10:20"),
+            horizon_min=15,
+            departure_match_window_min=15,
+            arrival_match_window_min=120,
+        )
+        self.assertEqual(validated.loc[0, "departure_match_status"], "UNMATCHED_RETAINED")
+        self.assertEqual(
+            validated.loc[0, "departure_match_reason"],
+            "NO_DEPARTURE_NEAR_SAME_EPISODE_RELEASE",
+        )
+        self.assertTrue(pd.isna(validated.loc[0, "observed_departure_time"]))
 
 
 if __name__ == "__main__":
