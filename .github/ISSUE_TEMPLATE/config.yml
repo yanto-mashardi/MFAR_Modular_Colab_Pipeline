@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Diskusi metodologis sebelum membuat Issue
+    url: https://github.com/yanto-mashardi/MFAR_Modular_Colab_Pipeline/discussions
+    about: Gunakan hanya apabila Discussions telah diaktifkan pada repository.
