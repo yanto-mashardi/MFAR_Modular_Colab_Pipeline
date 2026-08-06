@@ -1,0 +1,153 @@
+name: Prompt 1 Stage 01-02 behavior-preserving refactor
+
+on:
+  push:
+    branches:
+      - refactor/prompt1-stage01-02
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prompt1-stage12-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DRIVE_FOLDER_NAME: In_Out_MFAR_Modular_Colab_Pipeline
+  AIS_FILE_ID: 1anvGtFRU30yeNr3fTuId2XA690oGFGaA
+  ARRIVAL_FILE_ID: 1F6J240iN2eQyRJiTAtvKL5mh7YMvVSnk
+
+jobs:
+  refactor-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Prompt 1 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-baseline.txt
+
+      - name: Install frozen dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-baseline.txt
+
+      - name: Materialize reviewed Prompt 1 payload
+        run: |
+          if [[ ! -f tools/bootstrap_prompt1_payload.py ]]; then
+            cat tools/prompt1_payload/part-* > tools/bootstrap_prompt1_payload.py
+          fi
+          python tools/bootstrap_prompt1_payload.py
+
+      - name: Apply maintenance-only compatibility fixes
+        run: |
+          python tools/apply_behavior_preserving_maintenance.py
+          python tools/apply_behavior_preserving_maintenance.py --check
+          git diff --check
+
+      - name: Compile and run unit tests
+        run: |
+          python -m py_compile src/mfar_stage12.py tools/*.py
+          python -W error::FutureWarning -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Download immutable raw inputs
+        run: |
+          mkdir -p "/tmp/prompt1/${DRIVE_FOLDER_NAME}/data_raw"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import gdown
+
+          root = Path('/tmp/prompt1') / os.environ['DRIVE_FOLDER_NAME'] / 'data_raw'
+          targets = {
+              os.environ['AIS_FILE_ID']: root / 'ais_raw.csv',
+              os.environ['ARRIVAL_FILE_ID']: root / 'vehicle_arrival_rate_30min.csv',
+          }
+          for file_id, path in targets.items():
+              result = gdown.download(id=file_id, output=str(path), quiet=False)
+              if result is None or not path.is_file() or path.stat().st_size == 0:
+                  raise RuntimeError(f'Google Drive input could not be downloaded: {file_id}')
+          PY
+
+      - name: Execute Stage 01-07 in separate notebooks
+        env:
+          MFAR_CODE_ROOT: ${{ github.workspace }}
+          MFAR_GDRIVE_ROOT: /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$MFAR_GDRIVE_ROOT/executed_notebooks"
+          NOTEBOOKS=(
+            01_AIS_Input_and_Cleaning.ipynb
+            02_Time_Grid_and_State_Preparation.ipynb
+            03_Monitoring_State.ipynb
+            04_No_Intervention_Forecast.ipynb
+            05_Fuzzification.ipynb
+            06_Rule_Evaluation.ipynb
+            07_Candidate_Action.ipynb
+          )
+          for notebook in "${NOTEBOOKS[@]}"; do
+            echo "Executing ${notebook}"
+            jupyter nbconvert --to notebook --execute \
+              "notebooks/${notebook}" \
+              --output "${notebook}" \
+              --output-dir "$MFAR_GDRIVE_ROOT/executed_notebooks" \
+              --ExecutePreprocessor.timeout=-1 \
+              --ExecutePreprocessor.kernel_name=python3
+          done
+
+      - name: Verify exact baseline equivalence
+        env:
+          MFAR_GDRIVE_ROOT: /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline
+        run: |
+          python tools/verify_prompt1_equivalence.py \
+            --baseline validation/baseline/baseline_manifest.json \
+            --drive-root "$MFAR_GDRIVE_ROOT" \
+            --output /tmp/prompt1_equivalence_report.json \
+            --markdown validation/prompt1/PROMPT_1_ACCEPTANCE.md
+          {
+            echo
+            echo "## Workflow evidence"
+            echo
+            echo "- Workflow run: ${GITHUB_RUN_ID}"
+            echo "- Source commit: ${GITHUB_SHA}"
+            echo "- Branch: ${GITHUB_REF_NAME}"
+            echo "- Unit tests and complete Stage 01–07 execution: PASS"
+            echo "- Notebook cell-ID check: PASS"
+            echo "- Deprecated openpyxl style-copy check: PASS"
+          } >> validation/prompt1/PROMPT_1_ACCEPTANCE.md
+
+      - name: Commit verified maintenance artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -r --ignore-unmatch tools/prompt1_payload
+          git add src/mfar_stage12.py src/mfar_visuals.py notebooks/*.ipynb tests/test_stage12_refactor.py \
+            tools/bootstrap_prompt1_payload.py tools/apply_behavior_preserving_maintenance.py \
+            tools/verify_prompt1_equivalence.py docs/PROMPT_1_REFACTOR.md \
+            validation/prompt1/PROMPT_1_ACCEPTANCE.md
+          if ! git diff --cached --quiet; then
+            git commit -m "[skip ci] Record verified Prompt 1 maintenance outputs"
+            git push origin HEAD:refactor/prompt1-stage01-02
+          fi
+
+      - name: Upload Prompt 1 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompt1-stage12-equivalence
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            /tmp/prompt1_equivalence_report.json
+            validation/prompt1/PROMPT_1_ACCEPTANCE.md
+            /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline/executed_notebooks/01_AIS_Input_and_Cleaning.ipynb
+            /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline/executed_notebooks/02_Time_Grid_and_State_Preparation.ipynb
