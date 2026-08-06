@@ -24,6 +24,13 @@ arrival_match_window_min,120.0
 departure_maneuver_min,5.0
 fallback_trip_min,45.0
 max_interpolation_gap_min,20.0
+quality_weight_ais_continuity,0.40
+quality_weight_trip_history,0.25
+quality_weight_turnaround_prior,0.20
+quality_weight_berth_projection,0.15
+eta_fixed_baseline_min,50.0
+eta_interval_min_history,10
+eta_interval_quantile,0.90
 motorcycle_ce,0.25
 minimum_rule_strength,0.35
 state_continuity_gap_factor,1.5
