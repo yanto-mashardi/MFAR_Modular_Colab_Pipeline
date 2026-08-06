@@ -105,6 +105,107 @@ jobs:
               --ExecutePreprocessor.kernel_name=python3
           done
 
+      - name: Diagnose Stage 02 against legacy controller
+        env:
+          MFAR_CODE_ROOT: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}
+          CURRENT_ROOT: /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline
+          LEGACY_ROOT: /tmp/prompt1_legacy/In_Out_MFAR_Modular_Colab_Pipeline
+        run: |
+          set -euo pipefail
+          mkdir -p "$LEGACY_ROOT/stage_output/stage_01" "$LEGACY_ROOT/executed_notebooks" /tmp/prompt1_legacy/notebooks
+          cp "$CURRENT_ROOT/stage_output/stage_01/01_ais_clean.csv" "$LEGACY_ROOT/stage_output/stage_01/"
+          git show bcf3afe36e3edf9ca84047933316878ffa4b606a:notebooks/02_Time_Grid_and_State_Preparation.ipynb \
+            > /tmp/prompt1_legacy/notebooks/02_Time_Grid_and_State_Preparation.ipynb
+          MFAR_GDRIVE_ROOT="$LEGACY_ROOT" jupyter nbconvert --to notebook --execute \
+            /tmp/prompt1_legacy/notebooks/02_Time_Grid_and_State_Preparation.ipynb \
+            --output 02_Time_Grid_and_State_Preparation.ipynb \
+            --output-dir "$LEGACY_ROOT/executed_notebooks" \
+            --ExecutePreprocessor.timeout=-1 \
+            --ExecutePreprocessor.kernel_name=python3
+          python - <<'PY'
+          import csv
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import numpy as np
+          import pandas as pd
+
+          current_path = Path(os.environ['CURRENT_ROOT']) / 'stage_output/stage_02/02_vessel_interpolated_grid.csv'
+          legacy_path = Path(os.environ['LEGACY_ROOT']) / 'stage_output/stage_02/02_vessel_interpolated_grid.csv'
+
+          current = pd.read_csv(current_path, low_memory=False)
+          legacy = pd.read_csv(legacy_path, low_memory=False)
+          report = {
+              'current_sha256': hashlib.sha256(current_path.read_bytes()).hexdigest(),
+              'legacy_sha256': hashlib.sha256(legacy_path.read_bytes()).hexdigest(),
+              'shape_current': list(current.shape),
+              'shape_legacy': list(legacy.shape),
+              'columns_equal': list(current.columns) == list(legacy.columns),
+              'column_differences': [],
+              'raw_string_differences': [],
+          }
+
+          if list(current.columns) == list(legacy.columns) and current.shape == legacy.shape:
+              for column in current.columns:
+                  left = legacy[column]
+                  right = current[column]
+                  if pd.api.types.is_numeric_dtype(left) and pd.api.types.is_numeric_dtype(right):
+                      a = left.to_numpy(dtype=float, na_value=np.nan)
+                      b = right.to_numpy(dtype=float, na_value=np.nan)
+                      equal = (a == b) | (np.isnan(a) & np.isnan(b))
+                      count = int((~equal).sum())
+                      if count:
+                          finite = np.isfinite(a) & np.isfinite(b)
+                          max_abs = float(np.max(np.abs(a[finite] - b[finite]))) if finite.any() else None
+                          indices = np.flatnonzero(~equal)[:5].tolist()
+                          report['column_differences'].append({
+                              'column': column, 'count': count, 'max_abs_difference': max_abs,
+                              'samples': [
+                                  {'row': int(i), 'legacy': None if pd.isna(left.iloc[i]) else left.iloc[i],
+                                   'current': None if pd.isna(right.iloc[i]) else right.iloc[i]}
+                                  for i in indices
+                              ],
+                          })
+                  else:
+                      a = left.astype('string').fillna('<NA>')
+                      b = right.astype('string').fillna('<NA>')
+                      unequal = a.ne(b)
+                      count = int(unequal.sum())
+                      if count:
+                          indices = np.flatnonzero(unequal.to_numpy())[:5].tolist()
+                          report['column_differences'].append({
+                              'column': column, 'count': count,
+                              'samples': [
+                                  {'row': int(i), 'legacy': str(a.iloc[i]), 'current': str(b.iloc[i])}
+                                  for i in indices
+                              ],
+                          })
+
+              with legacy_path.open(newline='', encoding='utf-8') as lf, current_path.open(newline='', encoding='utf-8') as cf:
+                  legacy_rows = csv.reader(lf)
+                  current_rows = csv.reader(cf)
+                  header_l = next(legacy_rows)
+                  header_c = next(current_rows)
+                  for row_number, (row_l, row_c) in enumerate(zip(legacy_rows, current_rows), start=2):
+                      if row_l != row_c:
+                          diffs = []
+                          for idx, (lv, cv) in enumerate(zip(row_l, row_c)):
+                              if lv != cv:
+                                  diffs.append({'column': header_l[idx], 'legacy': lv, 'current': cv})
+                              if len(diffs) >= 8:
+                                  break
+                          report['raw_string_differences'].append({'row': row_number, 'differences': diffs})
+                          if len(report['raw_string_differences']) >= 8:
+                              break
+
+          out = Path('/tmp/stage2_legacy_diagnostic.json')
+          out.write_text(json.dumps(report, indent=2, default=str), encoding='utf-8')
+          print(out)
+          print(json.dumps(report, indent=2, default=str))
+          PY
+
       - name: Verify exact baseline equivalence
         env:
           MFAR_GDRIVE_ROOT: /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline
@@ -157,6 +258,9 @@ jobs:
           retention-days: 30
           path: |
             /tmp/prompt1_equivalence_report.json
+            /tmp/stage2_legacy_diagnostic.json
             validation/prompt1/PROMPT_1_ACCEPTANCE.md
+            /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline/stage_output/stage_02/02_vessel_interpolated_grid.csv
+            /tmp/prompt1_legacy/In_Out_MFAR_Modular_Colab_Pipeline/stage_output/stage_02/02_vessel_interpolated_grid.csv
             /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline/executed_notebooks/01_AIS_Input_and_Cleaning.ipynb
             /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline/executed_notebooks/02_Time_Grid_and_State_Preparation.ipynb
