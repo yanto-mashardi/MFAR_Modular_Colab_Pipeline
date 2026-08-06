@@ -9,6 +9,7 @@ This package freezes the current **MFAR_V1_RETROSPECTIVE** implementation before
 - Revision branch: `revision/q1-logic-mfar`
 - Scientific stages: separate notebooks `01` through `07`
 - Primary runtime: Google Colab with the existing Google Drive input/output structure
+- Frozen baseline dependencies: `requirements-baseline.txt`
 
 ## Clone the revision branch
 
@@ -20,13 +21,23 @@ cd MFAR_Modular_Colab_Pipeline
 
 The original `main` branch remains unchanged. Methodological revisions must remain on the revision branch or its child branches until they pass the stated audits.
 
+## Frozen runtime
+
+Prompt 0 uses `requirements-baseline.txt`, which pins the principal packages used to reproduce the current model. This prevents later releases—especially breaking pandas releases—from changing dtype behavior or numerical output during baseline verification. The existing `requirements.txt` remains available for general development and is not changed by Prompt 0.
+
+Install the frozen environment with:
+
+```bash
+python -m pip install -r requirements-baseline.txt
+```
+
 ## Google Colab execution
 
 Open `notebooks/00_Baseline_Reproduction.ipynb` in Google Colab and choose **Runtime → Run all**. The notebook performs the following actions:
 
 1. mounts Google Drive;
 2. clones or updates `revision/q1-logic-mfar`;
-3. installs the repository requirements;
+3. installs the frozen baseline requirements;
 4. runs the existing unit tests;
 5. copies the two raw input files into two isolated baseline run directories;
 6. executes notebooks `01`–`07` in their existing order for Run A and Run B;
@@ -48,6 +59,7 @@ In_Out_MFAR_Modular_Colab_Pipeline/
         │       ├── data_raw/
         │       ├── stage_output/stage_01 ... stage_07/
         │       ├── executed_notebooks/
+        │       ├── baseline-python-freeze.txt
         │       └── baseline_evidence/
         ├── run_b/
         │   └── In_Out_MFAR_Modular_Colab_Pipeline/
@@ -65,7 +77,7 @@ Each stage can also be run separately by setting `MFAR_CODE_ROOT` to the cloned 
 - `tools/create_baseline_manifest.py`: read-only manifest and repeatability utility.
 - `validation/baseline/PROMPT_0_ACCEPTANCE.md`: acceptance checklist and evidence references.
 
-The committed manifest records the environment used to inspect and hash existing artifacts. The original Colab package versions were not stored in the earlier stage metadata. Fresh Run A and Run B manifests record their own Python and package versions.
+The committed manifest records the environment used to inspect and hash existing artifacts. The original Colab package versions were not stored in the earlier stage metadata. Fresh Run A and Run B manifests record their own Python and package versions, and each run writes a complete `pip freeze` file.
 
 ## Command-line use
 
