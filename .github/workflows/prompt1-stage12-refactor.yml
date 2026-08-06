@@ -113,7 +113,8 @@ jobs:
           LEGACY_ROOT: /tmp/prompt1_legacy/In_Out_MFAR_Modular_Colab_Pipeline
         run: |
           set -euo pipefail
-          mkdir -p "$LEGACY_ROOT/stage_output/stage_01" "$LEGACY_ROOT/executed_notebooks" /tmp/prompt1_legacy/notebooks
+          mkdir -p "$LEGACY_ROOT/data_raw" "$LEGACY_ROOT/stage_output/stage_01" "$LEGACY_ROOT/executed_notebooks" /tmp/prompt1_legacy/notebooks
+          cp "$CURRENT_ROOT/data_raw/"*.csv "$LEGACY_ROOT/data_raw/"
           cp "$CURRENT_ROOT/stage_output/stage_01/01_ais_clean.csv" "$LEGACY_ROOT/stage_output/stage_01/"
           git show bcf3afe36e3edf9ca84047933316878ffa4b606a:notebooks/02_Time_Grid_and_State_Preparation.ipynb \
             > /tmp/prompt1_legacy/notebooks/02_Time_Grid_and_State_Preparation.ipynb
