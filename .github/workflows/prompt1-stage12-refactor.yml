@@ -109,11 +109,19 @@ jobs:
         env:
           MFAR_GDRIVE_ROOT: /tmp/prompt1/In_Out_MFAR_Modular_Colab_Pipeline
         run: |
+          set +e
           python tools/verify_prompt1_equivalence.py \
             --baseline validation/baseline/baseline_manifest.json \
             --drive-root "$MFAR_GDRIVE_ROOT" \
             --output /tmp/prompt1_equivalence_report.json \
             --markdown validation/prompt1/PROMPT_1_ACCEPTANCE.md
+          status=$?
+          set -e
+          cat /tmp/prompt1_equivalence_report.json
+          if [[ "$status" -ne 0 ]]; then
+            cat validation/prompt1/PROMPT_1_ACCEPTANCE.md
+            exit "$status"
+          fi
           {
             echo
             echo "## Workflow evidence"
@@ -141,6 +149,7 @@ jobs:
           fi
 
       - name: Upload Prompt 1 evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: prompt1-stage12-equivalence
