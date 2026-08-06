@@ -52,7 +52,11 @@ jobs:
 
       - name: Compile and run unit tests
         run: |
-          python -m py_compile src/mfar_state_episode.py tools/verify_prompt2_state_episode.py
+          python -m py_compile \
+            src/mfar_state_episode.py \
+            src/mfar_prompt2_runtime.py \
+            tools/verify_prompt2_state_episode.py \
+            tools/verify_prompt2_physical_constraints.py
           python -W error::FutureWarning -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Download immutable raw inputs
@@ -101,6 +105,14 @@ jobs:
               --ExecutePreprocessor.kernel_name=python3
           done
 
+      - name: Verify physical berth and causal-prior constraints
+        env:
+          MFAR_GDRIVE_ROOT: /tmp/prompt2/In_Out_MFAR_Modular_Colab_Pipeline
+        run: |
+          python tools/verify_prompt2_physical_constraints.py \
+            --drive-root "$MFAR_GDRIVE_ROOT" \
+            --output /tmp/prompt2_physical_constraints_report.json
+
       - name: Verify Prompt 2 methodological contracts
         env:
           MFAR_GDRIVE_ROOT: /tmp/prompt2/In_Out_MFAR_Modular_Colab_Pipeline
@@ -109,6 +121,19 @@ jobs:
             --drive-root "$MFAR_GDRIVE_ROOT" \
             --output /tmp/prompt2_state_episode_report.json \
             --markdown validation/prompt2/PROMPT_2_ACCEPTANCE.md
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('/tmp/prompt2_physical_constraints_report.json').read_text())
+          acceptance = Path('validation/prompt2/PROMPT_2_ACCEPTANCE.md')
+          with acceptance.open('a', encoding='utf-8') as handle:
+              handle.write('\n## Physical berth and causal-prior evidence\n\n')
+              handle.write(f"- Unique berth occupancy: **{report['status']}**\n")
+              handle.write(f"- Reassigned berth rows: {report['reassigned_rows']}\n")
+              handle.write(f"- Capacity-conflict demotions: {report['capacity_conflict_demotions']}\n")
+              for name, value in report['checks'].items():
+                  handle.write(f"- `{name}`: {value}\n")
+          PY
           {
             echo
             echo "## Workflow evidence"
@@ -139,9 +164,12 @@ jobs:
           retention-days: 30
           path: |
             /tmp/prompt2_state_episode_report.json
+            /tmp/prompt2_physical_constraints_report.json
             validation/prompt2/PROMPT_2_ACCEPTANCE.md
+            /tmp/prompt2/In_Out_MFAR_Modular_Colab_Pipeline/stage_output/stage_03/03_input_state_enhanced.csv
             /tmp/prompt2/In_Out_MFAR_Modular_Colab_Pipeline/stage_output/stage_03/03_berth_episode_history.csv
             /tmp/prompt2/In_Out_MFAR_Modular_Colab_Pipeline/stage_output/stage_03/03_service_call_history.csv
+            /tmp/prompt2/In_Out_MFAR_Modular_Colab_Pipeline/stage_output/stage_03/03_berth_occupancy_timeline.csv
             /tmp/prompt2/In_Out_MFAR_Modular_Colab_Pipeline/stage_output/stage_03/03_berth_episode_class_summary.csv
             /tmp/prompt2/In_Out_MFAR_Modular_Colab_Pipeline/stage_output/stage_03/03_state_transition_summary.csv
             /tmp/prompt2/In_Out_MFAR_Modular_Colab_Pipeline/stage_output/stage_03/03_berth_prediction_audit.csv
