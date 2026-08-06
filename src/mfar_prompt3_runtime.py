@@ -1,9 +1,9 @@
 """Runtime adapter for Prompt 3 prospective Stage 04.
 
-The prospective trigger remains unchanged. This adapter tightens post-hoc
-validation so a decision may be matched only to the observed departure adjacent
-to the same berth episode. A later departure from a subsequent trip is never
-used merely because it falls inside a broad future window.
+The adapter enforces three contracts:
+1. the trigger uses a fixed-grid scan of contemporaneous state only;
+2. future episode outcomes are removed before forecast and fuzzy inference;
+3. post-hoc validation matches only the departure adjacent to the same episode.
 """
 from __future__ import annotations
 
@@ -11,6 +11,26 @@ import numpy as np
 import pandas as pd
 
 from . import mfar_prospective_forecast as implementation
+
+_ORIGINAL_BUILD_EPOCHS = implementation.build_prospective_decision_epochs
+_FUTURE_EPISODE_OUTCOME_COLUMNS = [
+    "episode_class",
+    "eligible_for_turnaround_calibration",
+    "entry_observed",
+    "exit_observed",
+]
+
+
+def build_prospective_decision_epochs(*args, **kwargs) -> pd.DataFrame:
+    """Generate epochs and remove current-episode outcomes known only in hindsight."""
+    out = _ORIGINAL_BUILD_EPOCHS(*args, **kwargs)
+    removed = [column for column in _FUTURE_EPISODE_OUTCOME_COLUMNS if column in out.columns]
+    out = out.drop(columns=removed, errors="ignore")
+    out["prospective_feature_contract"] = "CURRENT_STATE_ONLY"
+    out["future_episode_outcome_columns_removed"] = (
+        ",".join(removed) if removed else "NONE_PRESENT"
+    )
+    return out
 
 
 def attach_posthoc_validation(
@@ -37,7 +57,9 @@ def attach_posthoc_validation(
     for column in ["berth_entry_time", "observed_end", "observed_release_time"]:
         if column in episode_frame.columns:
             episode_frame[column] = pd.to_datetime(episode_frame[column], errors="coerce")
-    episode_frame["mmsi"] = pd.to_numeric(episode_frame["mmsi"], errors="coerce").astype("Int64")
+    episode_frame["mmsi"] = pd.to_numeric(
+        episode_frame["mmsi"], errors="coerce"
+    ).astype("Int64")
     episode_frame["berth_episode_id"] = pd.to_numeric(
         episode_frame["berth_episode_id"], errors="coerce"
     ).astype("Int64")
@@ -68,9 +90,13 @@ def attach_posthoc_validation(
             continue
 
         episode_row = episode.sort_values("berth_entry_time").iloc[0]
-        release = pd.to_datetime(episode_row.get("observed_release_time"), errors="coerce")
+        release = pd.to_datetime(
+            episode_row.get("observed_release_time"), errors="coerce"
+        )
         if pd.isna(release):
-            observed_end = pd.to_datetime(episode_row.get("observed_end"), errors="coerce")
+            observed_end = pd.to_datetime(
+                episode_row.get("observed_end"), errors="coerce"
+            )
             release = observed_end if pd.notna(observed_end) else pd.NaT
         episode_release_times.append(release)
         if pd.isna(release):
@@ -84,7 +110,9 @@ def attach_posthoc_validation(
             dep["mmsi"].eq(mmsi)
             & dep["origin"].astype(str).str.upper().eq(str(row["origin"]).upper())
             & dep["baseline_departure_time"].gt(decision)
-            & dep["baseline_departure_time"].between(release - tolerance, release + tolerance)
+            & dep["baseline_departure_time"].between(
+                release - tolerance, release + tolerance
+            )
         ].copy()
         candidates = candidates.loc[~candidates.index.isin(used_departures)]
         if candidates.empty:
@@ -98,7 +126,9 @@ def attach_posthoc_validation(
             candidates["baseline_departure_time"].sub(release).abs()
         )
         selected_index = int(
-            candidates.sort_values(["_release_abs_delta", "baseline_departure_time"]).index[0]
+            candidates.sort_values(
+                ["_release_abs_delta", "baseline_departure_time"]
+            ).index[0]
         )
         selected_time = pd.Timestamp(dep.at[selected_index, "baseline_departure_time"])
         used_departures.add(selected_index)
@@ -119,10 +149,12 @@ def attach_posthoc_validation(
         "UNMATCHED_RETAINED",
     )
     out["decision_to_observed_departure_min"] = (
-        out["observed_departure_time"].sub(out["decision_time"]).dt.total_seconds().div(60)
+        out["observed_departure_time"].sub(out["decision_time"])
+        .dt.total_seconds().div(60)
     )
     out["retrospective_reference_decision_time"] = (
-        out["observed_departure_time"] - pd.to_timedelta(float(horizon_min), unit="m")
+        out["observed_departure_time"]
+        - pd.to_timedelta(float(horizon_min), unit="m")
     )
     out["prospective_minus_retrospective_epoch_min"] = (
         out["decision_time"].sub(out["retrospective_reference_decision_time"])
@@ -180,10 +212,13 @@ def attach_posthoc_validation(
 
 
 def run_stage4(*args, **kwargs):
-    """Run Prompt 3 with same-episode post-hoc matching."""
-    previous = implementation.attach_posthoc_validation
+    """Run Prompt 3 with current-state features and same-episode validation."""
+    previous_build = implementation.build_prospective_decision_epochs
+    previous_attach = implementation.attach_posthoc_validation
+    implementation.build_prospective_decision_epochs = build_prospective_decision_epochs
     implementation.attach_posthoc_validation = attach_posthoc_validation
     try:
         return implementation.run_stage4(*args, **kwargs)
     finally:
-        implementation.attach_posthoc_validation = previous
+        implementation.build_prospective_decision_epochs = previous_build
+        implementation.attach_posthoc_validation = previous_attach
