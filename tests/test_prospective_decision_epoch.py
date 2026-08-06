@@ -2,8 +2,10 @@ import unittest
 
 import pandas as pd
 
-from src.mfar_prompt3_runtime import attach_posthoc_validation
-from src.mfar_prospective_forecast import build_prospective_decision_epochs
+from src.mfar_prompt3_runtime import (
+    attach_posthoc_validation,
+    build_prospective_decision_epochs,
+)
 
 
 class ProspectiveDecisionEpochTests(unittest.TestCase):
@@ -29,6 +31,10 @@ class ProspectiveDecisionEpochTests(unittest.TestCase):
                 "2026-03-01 10:20", pd.NaT,
             ]),
             "elapsed_berth_min": [0.0, 5.0, 10.0, 0.0],
+            "episode_class": ["COMPLETE_SERVICE_CALL"] * 4,
+            "eligible_for_turnaround_calibration": [True] * 4,
+            "entry_observed": [True] * 4,
+            "exit_observed": [True] * 4,
         })
 
     @staticmethod
@@ -72,6 +78,16 @@ class ProspectiveDecisionEpochTests(unittest.TestCase):
         self.assertEqual(early.loc[0, "decision_time"], pd.Timestamp("2026-03-01 10:10"))
         self.assertEqual(early.loc[0, "decision_time"], late.loc[0, "decision_time"])
         self.assertFalse(bool(early.loc[0, "observed_departure_used_to_generate_case"]))
+
+    def test_future_episode_outcomes_are_removed_before_prediction(self):
+        cases = self._build(self._state(40))
+        for column in [
+            "episode_class", "eligible_for_turnaround_calibration",
+            "entry_observed", "exit_observed",
+        ]:
+            self.assertNotIn(column, cases.columns)
+        self.assertEqual(cases.loc[0, "prospective_feature_contract"], "CURRENT_STATE_ONLY")
+        self.assertIn("episode_class", cases.loc[0, "future_episode_outcome_columns_removed"])
 
     def test_only_first_eligible_scan_is_emitted_per_episode(self):
         state = self._state(40)
