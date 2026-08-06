@@ -47,8 +47,10 @@ def main() -> int:
     audit = pd.read_csv(stage4 / "04_prospective_epoch_audit.csv", low_memory=False)
     summary = pd.read_csv(stage4 / "04_forecast_summary.csv", low_memory=False)
     for frame in [forecast, epochs, comparison]:
-        for column in ["decision_time", "observed_departure_time",
-                       "retrospective_reference_decision_time"]:
+        for column in [
+            "decision_time", "observed_departure_time",
+            "retrospective_reference_decision_time", "episode_observed_release_time",
+        ]:
             if column in frame:
                 frame[column] = pd.to_datetime(frame[column], errors="coerce")
 
@@ -76,10 +78,27 @@ def main() -> int:
     check("retrospective_reference_is_audit_only",
           not _bool(forecast["retrospective_reference_used_for_prediction"]).any(),
           int(_bool(forecast["retrospective_reference_used_for_prediction"]).sum()), 0)
+
     matched = forecast["observed_departure_time"].notna()
     bad_order = int((forecast.loc[matched, "observed_departure_time"]
                      <= forecast.loc[matched, "decision_time"]).sum())
     check("matched_departure_occurs_after_decision", bad_order == 0, bad_order, 0)
+    bad_match_label = int(
+        forecast.loc[matched, "departure_match_status"]
+        .ne("MATCHED_SAME_EPISODE_POSTHOC").sum()
+    )
+    check("matched_departure_is_same_episode_posthoc", bad_match_label == 0, bad_match_label, 0)
+    missing_release = int(forecast.loc[matched, "episode_observed_release_time"].isna().sum())
+    check("matched_case_has_episode_release_anchor", missing_release == 0, missing_release, 0)
+    release_delta = pd.to_numeric(
+        forecast.loc[matched, "departure_to_episode_release_min"], errors="coerce"
+    )
+    over_tolerance = int(release_delta.abs().gt(15.0 + 1e-9).sum())
+    check("matched_departure_within_episode_release_tolerance", over_tolerance == 0,
+          over_tolerance, 0)
+    reused = int(forecast.loc[matched, "matched_departure_index"].duplicated().sum())
+    check("matched_departure_not_reused", reused == 0, reused, 0)
+
     history = pd.to_datetime(forecast["trip_history_latest_time"], errors="coerce")
     future_history = int((history.notna() & history.ge(forecast["decision_time"])).sum())
     check("trip_history_is_known_at_decision", future_history == 0, future_history, 0)
@@ -94,8 +113,10 @@ def main() -> int:
     unmatched_count = int((~matched).sum())
     coincidence = int((matched & forecast["decision_time"].eq(
         forecast["retrospective_reference_decision_time"])).sum())
+    reason_counts = forecast["departure_match_reason"].value_counts(dropna=False).to_dict()
+    maximum_release_delta = float(release_delta.abs().max()) if matched_count else None
     report = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": "PASS" if all(item["status"] == "PASS" for item in checks) else "FAIL",
         "checks": checks,
@@ -111,6 +132,8 @@ def main() -> int:
             "median_epoch_shift_min": (
                 float(forecast.loc[matched, "prospective_minus_retrospective_epoch_min"].median())
                 if matched_count else None),
+            "maximum_absolute_departure_to_episode_release_min": maximum_release_delta,
+            "departure_match_reason_counts": reason_counts,
             "exact_retrospective_formula_coincidences": coincidence,
             "summary": dict(zip(summary["metric"], summary["value"])),
         },
@@ -121,7 +144,7 @@ def main() -> int:
         "# Prompt 3 Acceptance Record", "",
         f"- Overall status: **{report['status']}**",
         f"- Prospective decision cases: {len(forecast):,}",
-        f"- Post-hoc matched departures: {matched_count:,}",
+        f"- Same-episode post-hoc matches: {matched_count:,}",
         f"- Unmatched cases retained: {unmatched_count:,}",
         f"- ETA validation cases: {int(forecast['absolute_eta_error_min'].notna().sum()):,}",
         "", "| Check | Status | Actual | Expected |", "|---|---:|---:|---:|",
@@ -130,13 +153,20 @@ def main() -> int:
         lines.append(f"| `{item['check']}` | {item['status']} | {item.get('actual', '')} | {item.get('expected', '')} |")
     lines.extend([
         "", "## Epoch diagnostics", "",
-        f"- Match rate: {100 * matched_count / max(len(forecast), 1):.2f}%",
+        f"- Same-episode match rate: {100 * matched_count / max(len(forecast), 1):.2f}%",
         f"- Median decision-to-observed-departure lead: {report['diagnostics']['median_decision_to_departure_min']}",
         f"- Median prospective-minus-retrospective epoch shift: {report['diagnostics']['median_epoch_shift_min']}",
+        f"- Maximum absolute departure-to-episode-release difference: {maximum_release_delta}",
         f"- Exact coincidences with `departure - horizon`: {coincidence}",
+        "", "## Departure matching outcomes", "",
+    ])
+    for name, count in reason_counts.items():
+        lines.append(f"- `{name}`: {count}")
+    lines.extend([
         "", "## Methodological boundary", "",
         "Decision cases are emitted by a fixed-grid scan of contemporaneous Stage 03 berth states. "
         "Observed departures and the retrospective reference timestamp are attached only after prediction. "
+        "A detected departure is valid for evaluation only when it is adjacent to the same quality-gated berth episode. "
         "Unmatched prospective cases remain in the fuzzy-input population.",
     ])
     args.markdown.parent.mkdir(parents=True, exist_ok=True)
