@@ -1,8 +1,12 @@
 import unittest
 
+import numpy as np
 import pandas as pd
 
 from src.mfar_state_episode import refine_operational_states, reconstruct_berth_episodes
+
+
+TEST_MMSI = 525002121
 
 
 class StateEpisodeReconstructionTests(unittest.TestCase):
@@ -10,9 +14,9 @@ class StateEpisodeReconstructionTests(unittest.TestCase):
         n = len(times)
         nearest_ports = nearest_ports or ["BENGKALIS"] * n
         nearest_berths = nearest_berths or ["BENGKALIS_BERTH_1"] * n
-        frame = pd.DataFrame({
+        return pd.DataFrame({
             "grid_time": pd.to_datetime(times),
-            "mmsi": [525002121] * n,
+            "mmsi": [TEST_MMSI] * n,
             "operational_status": ["SAILING"] * n,
             "origin": ["BENGKALIS"] * n,
             "destination": ["PAKNING"] * n,
@@ -27,11 +31,30 @@ class StateEpisodeReconstructionTests(unittest.TestCase):
             "delta_bengkalis_distance_nm": [None] + [distances[i] - distances[i - 1] for i in range(1, n)],
             "delta_pakning_distance_nm": [None] * n,
         })
-        return frame
 
     def _refine(self, frame):
-        return refine_operational_states(
-            frame,
+        # Production input contains both terminals. Add one non-berth context row so
+        # each unit fixture preserves that corridor-level contract without changing
+        # the tested vessel sequence.
+        dummy = frame.iloc[[0]].copy()
+        dummy["grid_time"] = frame["grid_time"].min() - pd.Timedelta(minutes=5)
+        dummy["mmsi"] = 999999999
+        dummy["operational_status"] = "SAILING"
+        dummy["origin"] = "PAKNING"
+        dummy["destination"] = "BENGKALIS"
+        dummy["nearest_port_id"] = "PAKNING"
+        dummy["nearest_berth_id"] = "PAKNING_BERTH_1"
+        dummy["current_berth_id"] = None
+        dummy["is_at_berth"] = False
+        dummy["nearest_distance_nm"] = 1.0
+        dummy["nearest_berth_radius_nm"] = 0.12
+        dummy["sog"] = 7.0
+        dummy["bracket_gap_min"] = 5.0
+        dummy["delta_bengkalis_distance_nm"] = np.nan
+        dummy["delta_pakning_distance_nm"] = np.nan
+        corridor = pd.concat([frame, dummy], ignore_index=True)
+        refined = refine_operational_states(
+            corridor,
             grid_interval_min=5,
             continuity_gap_factor=1.5,
             stopped_speed_kn=0.8,
@@ -41,6 +64,7 @@ class StateEpisodeReconstructionTests(unittest.TestCase):
             approach_radius_nm=0.6,
             movement_eps_nm=0.005,
         )
+        return refined[refined["mmsi"].eq(TEST_MMSI)].reset_index(drop=True)
 
     def _episodes(self, frame):
         return reconstruct_berth_episodes(
