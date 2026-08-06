@@ -58,7 +58,7 @@ Prompt 2 intentionally changes Stage 03 state labels and berth-episode membershi
 
 ## Workflow evidence
 
-- Workflow run: 31065123426
-- Source commit: 0ad59761ab72cb3345ed527c6b16a533ce6833c0
+- Workflow run: 31065390306
+- Source commit: 41ddfd09772f1b6171cad0a89ccb5132dfd8ac85
 - Branch: method/prompt2-state-berth-episodes
 - Unit tests and complete Stage 01-07 execution: PASS
