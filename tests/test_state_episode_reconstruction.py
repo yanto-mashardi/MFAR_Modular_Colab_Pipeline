@@ -3,6 +3,8 @@ import unittest
 import numpy as np
 import pandas as pd
 
+pd.set_option("future.no_silent_downcasting", True)
+
 from src.mfar_state_episode import refine_operational_states, reconstruct_berth_episodes
 
 
