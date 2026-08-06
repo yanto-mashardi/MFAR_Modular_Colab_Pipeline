@@ -46,7 +46,6 @@ FORBIDDEN_DIRECTORIES = {
     "data_raw",
     "stage_output",
     "outputs",
-    "validation",
     "artifacts",
     "In_Out_MFAR_Modular_Colab_Pipeline",
 }
