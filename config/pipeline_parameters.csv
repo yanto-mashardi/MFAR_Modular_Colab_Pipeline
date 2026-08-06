@@ -14,6 +14,13 @@ default_berth_reliability,1.0
 calibration_fraction,0.66
 evaluation_months,1
 decision_lead_min,15.0
+decision_scan_interval_min,5.0
+decision_horizon_min,15.0
+decision_operating_start_min,420.0
+decision_operating_end_min,1435.0
+decision_min_elapsed_berth_min,0.0
+departure_match_window_min,15.0
+arrival_match_window_min,120.0
 departure_maneuver_min,5.0
 fallback_trip_min,45.0
 max_interpolation_gap_min,20.0
