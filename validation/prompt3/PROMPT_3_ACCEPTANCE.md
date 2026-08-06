@@ -2,9 +2,9 @@
 
 - Overall status: **PASS**
 - Prospective decision cases: 543
-- Post-hoc matched departures: 523
-- Unmatched cases retained: 20
-- ETA validation cases: 480
+- Same-episode post-hoc matches: 475
+- Unmatched cases retained: 68
+- ETA validation cases: 437
 
 | Check | Status | Actual | Expected |
 |---|---:|---:|---:|
@@ -23,6 +23,10 @@
 | `observed_departure_not_used_in_eta` | PASS | 0 | 0 |
 | `retrospective_reference_is_audit_only` | PASS | 0 | 0 |
 | `matched_departure_occurs_after_decision` | PASS | 0 | 0 |
+| `matched_departure_is_same_episode_posthoc` | PASS | 0 | 0 |
+| `matched_case_has_episode_release_anchor` | PASS | 0 | 0 |
+| `matched_departure_within_episode_release_tolerance` | PASS | 0 | 0 |
+| `matched_departure_not_reused` | PASS | 0 | 0 |
 | `trip_history_is_known_at_decision` | PASS | 0 | 0 |
 | `prospective_audit_has_no_failures` | PASS | 0 | 0 |
 | `epoch_comparison_matches_posthoc_cases` | PASS | 543 | 543 |
@@ -31,18 +35,25 @@
 
 ## Epoch diagnostics
 
-- Match rate: 96.32%
+- Same-episode match rate: 87.48%
 - Median decision-to-observed-departure lead: 20.0
 - Median prospective-minus-retrospective epoch shift: -5.0
-- Exact coincidences with `departure - horizon`: 76
+- Maximum absolute departure-to-episode-release difference: 0.0
+- Exact coincidences with `departure - horizon`: 69
+
+## Departure matching outcomes
+
+- `MATCHED_SAME_EPISODE_POSTHOC`: 475
+- `EPISODE_NOT_IN_QUALITY_GATED_HISTORY`: 53
+- `NO_DEPARTURE_NEAR_SAME_EPISODE_RELEASE`: 15
 
 ## Methodological boundary
 
-Decision cases are emitted by a fixed-grid scan of contemporaneous Stage 03 berth states. Observed departures and the retrospective reference timestamp are attached only after prediction. Unmatched prospective cases remain in the fuzzy-input population.
+Decision cases are emitted by a fixed-grid scan of contemporaneous Stage 03 berth states. Observed departures and the retrospective reference timestamp are attached only after prediction. A detected departure is valid for evaluation only when it is adjacent to the same quality-gated berth episode. Unmatched prospective cases remain in the fuzzy-input population.
 
 ## Workflow evidence
 
-- Workflow run: 31066520763
-- Source commit: 43a61ff9e821066e9b6557d13785e9901197c133
+- Workflow run: 31067060927
+- Source commit: 90eaa8af4e9d0e55ddb87ab30f847248a4c20e0a
 - Branch: method/prompt3-prospective-decision-epoch
 - Unit tests and complete Stage 01-07 execution: PASS
