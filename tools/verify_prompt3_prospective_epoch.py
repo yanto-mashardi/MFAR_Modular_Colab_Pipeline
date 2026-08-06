@@ -16,6 +16,12 @@ CANONICAL_ROWS = {
     "stage_output/stage_02/02_interpolation_rejected_grid.csv": 61408,
     "stage_output/stage_03/03_input_state_enhanced.csv": 40328,
 }
+FUTURE_EPISODE_OUTCOMES = {
+    "episode_class",
+    "eligible_for_turnaround_calibration",
+    "entry_observed",
+    "exit_observed",
+}
 
 
 def _bool(series: pd.Series) -> pd.Series:
@@ -59,6 +65,17 @@ def main() -> int:
     check("all_epochs_are_prospective",
           forecast["decision_epoch_mode"].eq("PROSPECTIVE_FIXED_GRID").all(),
           int(forecast["decision_epoch_mode"].ne("PROSPECTIVE_FIXED_GRID").sum()), 0)
+    forbidden_epochs = sorted(FUTURE_EPISODE_OUTCOMES.intersection(epochs.columns))
+    forbidden_forecast = sorted(FUTURE_EPISODE_OUTCOMES.intersection(forecast.columns))
+    check("future_episode_outcomes_absent_from_raw_epochs",
+          len(forbidden_epochs) == 0, ",".join(forbidden_epochs), "none")
+    check("future_episode_outcomes_absent_from_fuzzy_input",
+          len(forbidden_forecast) == 0, ",".join(forbidden_forecast), "none")
+    bad_contract = int(
+        forecast["prospective_feature_contract"].ne("CURRENT_STATE_ONLY").sum()
+    )
+    check("prospective_feature_contract_current_state_only", bad_contract == 0,
+          bad_contract, 0)
     check("one_decision_per_berth_episode",
           not forecast.duplicated(["mmsi", "berth_episode_id"]).any(),
           int(forecast.duplicated(["mmsi", "berth_episode_id"]).sum()), 0)
@@ -116,7 +133,7 @@ def main() -> int:
     reason_counts = forecast["departure_match_reason"].value_counts(dropna=False).to_dict()
     maximum_release_delta = float(release_delta.abs().max()) if matched_count else None
     report = {
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": "PASS" if all(item["status"] == "PASS" for item in checks) else "FAIL",
         "checks": checks,
@@ -134,6 +151,7 @@ def main() -> int:
                 if matched_count else None),
             "maximum_absolute_departure_to_episode_release_min": maximum_release_delta,
             "departure_match_reason_counts": reason_counts,
+            "removed_future_episode_outcomes": sorted(FUTURE_EPISODE_OUTCOMES),
             "exact_retrospective_formula_coincidences": coincidence,
             "summary": dict(zip(summary["metric"], summary["value"])),
         },
@@ -158,6 +176,9 @@ def main() -> int:
         f"- Median prospective-minus-retrospective epoch shift: {report['diagnostics']['median_epoch_shift_min']}",
         f"- Maximum absolute departure-to-episode-release difference: {maximum_release_delta}",
         f"- Exact coincidences with `departure - horizon`: {coincidence}",
+        "", "## Prospective feature contract", "",
+        "- Current-state contract: `CURRENT_STATE_ONLY`",
+        "- Removed future episode outcomes: `episode_class`, `eligible_for_turnaround_calibration`, `entry_observed`, `exit_observed`",
         "", "## Departure matching outcomes", "",
     ])
     for name, count in reason_counts.items():
@@ -165,6 +186,7 @@ def main() -> int:
     lines.extend([
         "", "## Methodological boundary", "",
         "Decision cases are emitted by a fixed-grid scan of contemporaneous Stage 03 berth states. "
+        "Future episode outcomes are removed before forecast and fuzzy inference. "
         "Observed departures and the retrospective reference timestamp are attached only after prediction. "
         "A detected departure is valid for evaluation only when it is adjacent to the same quality-gated berth episode. "
         "Unmatched prospective cases remain in the fuzzy-input population.",
