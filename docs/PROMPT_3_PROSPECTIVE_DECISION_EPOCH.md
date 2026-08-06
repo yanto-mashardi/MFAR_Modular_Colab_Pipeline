@@ -29,11 +29,17 @@ The prospective case is forecast first using information known at its decision t
 - vessel capacity from the current state or vessel profile;
 - contemporaneous destination-berth release estimates.
 
-Observed AIS departures are detected afterwards and attached through post-hoc matching. They are used to evaluate departure-time and ETA error. The retrospective timestamp `observed departure - horizon` is retained only in `04_epoch_comparison.csv`.
+Observed AIS departures are detected afterwards. A departure is attached only when it belongs to the same vessel, origin terminal, and quality-gated berth episode, and lies within 15 minutes of that episode's observed release boundary. A later departure from a subsequent trip is rejected even when it falls within a broad future window. The retrospective timestamp `observed departure - horizon` is retained only in `04_epoch_comparison.csv`.
 
 ## Unmatched cases
 
-A prospective system can issue a case even when no qualifying departure is subsequently observed within the matching window. Such cases are retained as `UNMATCHED_RETAINED`. They remain part of the fuzzy-input population because deleting them would condition the decision sample on future outcomes.
+A prospective system can issue a case even when the episode is excluded by the quality gate or no departure is detected near its observed release boundary. Such cases are retained as `UNMATCHED_RETAINED`. Deleting them would condition the decision sample on future outcomes.
+
+Unmatched reasons are recorded as:
+
+- `EPISODE_NOT_IN_QUALITY_GATED_HISTORY`;
+- `EPISODE_RELEASE_UNAVAILABLE`;
+- `NO_DEPARTURE_NEAR_SAME_EPISODE_RELEASE`.
 
 ## Primary outputs
 
@@ -55,10 +61,12 @@ A valid Prompt 3 run requires:
 - no observed departure used for case generation or ETA prediction;
 - no retrospective reference timestamp used for prediction;
 - matched departures later than their decision timestamps;
+- every matched departure anchored to the same berth episode;
+- absolute departure-to-episode-release difference no greater than 15 minutes;
 - no trip-history observation dated at or after the decision timestamp;
 - no reuse of a matched departure across cases;
 - full Stage 01–07 execution.
 
 ## Scientific boundary
 
-This prompt corrects the temporal decision design. It does not recalibrate the confidence index, fuzzy memberships, rule coverage, action effects, or queue simulator. Those components must be evaluated in their respective prompts. All Stage 04–07 counts and performance metrics must be regenerated after this change.
+This prompt corrects the temporal decision design and post-hoc validation identity. It does not recalibrate the confidence index, fuzzy memberships, rule coverage, action effects, or queue simulator. Those components must be evaluated in their respective prompts. All Stage 04–07 counts and performance metrics must be regenerated after this change.
