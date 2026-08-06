@@ -16,6 +16,9 @@
 | `prospective_cases_nonempty` | PASS | 543 | >0 |
 | `raw_epoch_count_matches_forecast` | PASS | 543 | 543 |
 | `all_epochs_are_prospective` | PASS | 0 | 0 |
+| `future_episode_outcomes_absent_from_raw_epochs` | PASS |  | none |
+| `future_episode_outcomes_absent_from_fuzzy_input` | PASS |  | none |
+| `prospective_feature_contract_current_state_only` | PASS | 0 | 0 |
 | `one_decision_per_berth_episode` | PASS | 0 | 0 |
 | `decision_epoch_on_five_minute_grid` | PASS | 0 | 0 |
 | `decision_epoch_at_origin_berth` | PASS | 0 | 0 |
@@ -41,6 +44,11 @@
 - Maximum absolute departure-to-episode-release difference: 0.0
 - Exact coincidences with `departure - horizon`: 69
 
+## Prospective feature contract
+
+- Current-state contract: `CURRENT_STATE_ONLY`
+- Removed future episode outcomes: `episode_class`, `eligible_for_turnaround_calibration`, `entry_observed`, `exit_observed`
+
 ## Departure matching outcomes
 
 - `MATCHED_SAME_EPISODE_POSTHOC`: 475
@@ -49,11 +57,11 @@
 
 ## Methodological boundary
 
-Decision cases are emitted by a fixed-grid scan of contemporaneous Stage 03 berth states. Observed departures and the retrospective reference timestamp are attached only after prediction. A detected departure is valid for evaluation only when it is adjacent to the same quality-gated berth episode. Unmatched prospective cases remain in the fuzzy-input population.
+Decision cases are emitted by a fixed-grid scan of contemporaneous Stage 03 berth states. Future episode outcomes are removed before forecast and fuzzy inference. Observed departures and the retrospective reference timestamp are attached only after prediction. A detected departure is valid for evaluation only when it is adjacent to the same quality-gated berth episode. Unmatched prospective cases remain in the fuzzy-input population.
 
 ## Workflow evidence
 
-- Workflow run: 31067060927
-- Source commit: 90eaa8af4e9d0e55ddb87ab30f847248a4c20e0a
+- Workflow run: 31067443074
+- Source commit: c4449db5ca8bbf659e3f8a040a2abcab62e08808
 - Branch: method/prompt3-prospective-decision-epoch
 - Unit tests and complete Stage 01-07 execution: PASS
