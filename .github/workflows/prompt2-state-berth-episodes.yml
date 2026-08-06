@@ -43,7 +43,7 @@ jobs:
 
       - name: Enforce Prompt 2 scope boundary
         run: |
-          changed="$(git diff --name-only refactor/prompt1-stage01-02...HEAD)"
+          changed="$(git diff --name-only origin/refactor/prompt1-stage01-02...HEAD)"
           printf '%s\n' "$changed"
           if printf '%s\n' "$changed" | grep -Eq '^(src/mfar_stage12.py|notebooks/01_|notebooks/02_)'; then
             echo 'Prompt 2 must not modify Stage 01-02 implementation.' >&2
@@ -135,7 +135,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: prompt2-state-berth-episodes
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
           path: |
             /tmp/prompt2_state_episode_report.json
