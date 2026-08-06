@@ -1,3 +1,41 @@
+# Python caches and environments
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local environment and credentials
+.env
+.env.local
+.env.*.local
+credentials*.json
+service-account*.json
+*.pem
+*.key
+
+# MFAR data and generated artefacts
+# Large/private inputs and simulation outputs belong in Google Drive.
+data_raw/
+stage_output/
+outputs/
+validation/
+artifacts/
+In_Out_MFAR_Modular_Colab_Pipeline/
+
+# Temporary and execution files
+*.log
+*.tmp
+*.bak
+~$*
+
+# Operating-system metadata
+desktop.ini
+Thumbs.db
+.DS_Store
