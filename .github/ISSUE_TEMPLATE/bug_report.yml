@@ -1,0 +1,72 @@
+name: Bug atau kegagalan pipeline
+description: Laporkan error, output tidak wajar, atau kegagalan pada Stage 00–07.
+title: "[BUG] "
+body:
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Tahap terdampak
+      options:
+        - Stage 00 - Run All
+        - Stage 01 - AIS Input and Cleaning
+        - Stage 02 - Time Grid and State Preparation
+        - Stage 03 - Monitoring State
+        - Stage 04 - No Intervention Forecast
+        - Stage 05 - Fuzzification
+        - Stage 06 - Rule Evaluation
+        - Stage 07 - Candidate Action
+        - src/config/tests/documentation
+        - Belum diketahui
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Gejala dan masalah
+      description: Jelaskan apa yang terjadi dan mengapa hasil tersebut dianggap salah.
+      placeholder: Sertakan nama file, variabel, grafik, atau pesan error tanpa memasukkan data privat.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Perilaku yang diharapkan
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Langkah reproduksi
+      placeholder: Branch/commit, notebook, urutan cell, konfigurasi, dan perintah yang dijalankan.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Bukti audit
+      description: Tempel ringkasan log, rentang nilai, atau nama artefak. Jangan unggah kredensial atau data mentah.
+
+  - type: dropdown
+    id: methodological
+    attributes:
+      label: Apakah masalah dapat memengaruhi interpretasi ilmiah?
+      options:
+        - Ya
+        - Tidak
+        - Belum diketahui
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pemeriksaan awal
+      options:
+        - label: Saya telah memeriksa bahwa data mentah, token, kredensial, dan folder ID tidak disertakan.
+          required: true
+        - label: Saya telah mencari Issue yang sama.
+          required: true
