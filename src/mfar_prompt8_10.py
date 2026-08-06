@@ -57,15 +57,23 @@ def _apply(baseline:pd.DataFrame,accepted:pd.DataFrame,capacity:float,effect_sca
     return scenario,pd.DataFrame(effects)
 
 
+def _capacity_lookup(schedule:pd.DataFrame)->dict[tuple[pd.Timestamp,str],float]:
+    if schedule.empty: return {}
+    x=schedule.copy(); x["simulation_time"]=pd.to_datetime(x["simulation_time"],errors="coerce"); x["port_id"]=x["port_id"].astype(str).str.upper()
+    grouped=x.groupby(["simulation_time","port_id"])["service_capacity_ce"].sum()
+    return {(pd.Timestamp(t),str(p)):float(v) for (t,p),v in grouped.items()}
+
+
 def simulate_queue(queue_grid:pd.DataFrame,rates:pd.DataFrame,baseline:pd.DataFrame,scenario:pd.DataFrame,motor_ce:float,capacity:float,arrival_multiplier:float=1.)->pd.DataFrame:
     grid=queue_grid.copy(); grid["simulation_time"]=pd.to_datetime(grid["simulation_time"],errors="coerce"); rows=[]
+    base_lookup=_capacity_lookup(baseline); scenario_lookup=_capacity_lookup(scenario)
     for (date,port),g in grid.groupby([grid["simulation_time"].dt.date,"port_id"]):
-        qb=qa=0.
+        qb=qa=0.; port=str(port).upper()
         for raw in sorted(g["simulation_time"].dropna().unique()):
             stamp=pd.Timestamp(raw); arrival=_arrival_rate(rates,port,stamp,motor_ce)[2]*arrival_multiplier
-            bc=baseline[baseline["port_id"].eq(str(port).upper()) & baseline["simulation_time"].eq(stamp)]["service_capacity_ce"].sum(); sc=scenario[scenario["port_id"].eq(str(port).upper()) & scenario["simulation_time"].eq(stamp)]["service_capacity_ce"].sum()
+            bc=base_lookup.get((stamp,port),0.); sc=scenario_lookup.get((stamp,port),0.)
             bd=qb+arrival; sd=qa+arrival; bs=min(bc,bd); ss=min(sc,sd); qbn=bd-bs; qan=sd-ss
-            rows.append({"simulation_time":stamp,"evaluation_date":date,"port_id":str(port).upper(),"arrival_ce":arrival,"baseline_service_capacity_ce":bc,"scenario_service_capacity_ce":sc,"baseline_service_ce":bs,"scenario_service_ce":ss,"baseline_unused_capacity_ce":bc-bs,"scenario_unused_capacity_ce":sc-ss,"queue_ce":qbn,"queue_ce_after":qan,"queue_ratio":qbn/max(capacity,1e-9),"queue_ratio_after":qan/max(capacity,1e-9),"baseline_mass_balance_residual_ce":qbn-(qb+arrival-bs),"scenario_mass_balance_residual_ce":qan-(qa+arrival-ss)})
+            rows.append({"simulation_time":stamp,"evaluation_date":date,"port_id":port,"arrival_ce":arrival,"baseline_service_capacity_ce":bc,"scenario_service_capacity_ce":sc,"baseline_service_ce":bs,"scenario_service_ce":ss,"baseline_unused_capacity_ce":bc-bs,"scenario_unused_capacity_ce":sc-ss,"queue_ce":qbn,"queue_ce_after":qan,"queue_ratio":qbn/max(capacity,1e-9),"queue_ratio_after":qan/max(capacity,1e-9),"baseline_mass_balance_residual_ce":qbn-(qb+arrival-bs),"scenario_mass_balance_residual_ce":qan-(qa+arrival-ss)})
             qb,qa=qbn,qan
     x=pd.DataFrame(rows); x["intervention_service_ce"]=x["scenario_service_ce"]-x["baseline_service_ce"]; x["critical_baseline"]=x["queue_ratio"].ge(3); x["critical_after"]=x["queue_ratio_after"].ge(3)
     x["critical_case_status"]=np.select([x["critical_baseline"]&~x["critical_after"],x["critical_baseline"]&x["critical_after"],~x["critical_baseline"]&x["critical_after"]],["RESOLVED","REMAINING","NEW"],default="SAFE")
