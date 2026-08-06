@@ -1,5 +1,7 @@
 # MFAR Modular Google Colab Pipeline
 
+[![MFAR CI](https://github.com/yanto-mashardi/MFAR_Modular_Colab_Pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/yanto-mashardi/MFAR_Modular_Colab_Pipeline/actions/workflows/ci.yml)
+
 Pipeline modular AIS → interpolasi lima menit → monitoring dermaga → forecast
 pre-departure → fuzzification → rule evaluation → evaluasi skenario tindakan.
 
@@ -21,9 +23,9 @@ In_Out_MFAR_Modular_Colab_Pipeline/
     └── stage_07/
 ```
 
-Folder ID: `1CrvswSCmR0_Tr7mWYufrOXYgCMdRQpgq`. Folder ID dan URL hanya
-merupakan identitas; keduanya tidak boleh diberikan langsung kepada
-`pandas.read_csv()`.
+Lokasi dan identitas folder Google Drive harus dikonfigurasi secara lokal dan
+tidak dipublikasikan dalam repository. Folder ID dan URL hanya merupakan
+identitas; keduanya tidak boleh diberikan langsung kepada `pandas.read_csv()`.
 
 ## Menyiapkan path
 
@@ -106,7 +108,6 @@ Diagram struktur tersedia pada `docs/mfar_pipeline_revised.png` dan SVG.
 Dependensi Python utama: `pandas`, `numpy`, `folium`, `matplotlib`,
 `ipywidgets`, dan—khusus Colab—`google.colab`.
 
-
 ## Keluaran interpretatif
 
 Notebook tetap menulis CSV/JSON sebagai kontrak data antartahap. Setiap `Run all`
@@ -146,3 +147,40 @@ Instal dependensi sebelum eksekusi penuh:
 ```bash
 pip install -r requirements.txt
 ```
+
+## Validasi repository
+
+Validasi ringan yang tidak memerlukan data privat dijalankan otomatis pada
+setiap pull request dan push ke `main`:
+
+```bash
+python scripts/validate_repository.py
+python -m unittest discover -s tests -v
+```
+
+Log validasi disimpan sebagai GitHub Actions artifact selama 30 hari.
+
+## Tata kelola pengembangan
+
+- Mulai pekerjaan dari GitHub Issue dan gunakan branch terpisah.
+- Gabungkan perubahan melalui pull request setelah CI berhasil.
+- Gunakan `config/*.csv` sebagai sumber tunggal parameter ilmiah.
+- Simpan data besar dan output penuh di Google Drive.
+- Gunakan custom agent **MFAR Research Engineer** untuk tugas yang memiliki
+  acceptance criteria dan bukti validasi yang jelas.
+
+Dokumen utama:
+
+- [Pedoman kontribusi](CONTRIBUTING.md)
+- [Instruksi agen](AGENTS.md)
+- [Protokol reproduksibilitas](docs/reproducibility.md)
+- [Roadmap optimalisasi GitHub](docs/github_optimization_roadmap.md)
+- [Checklist release ilmiah](docs/release_checklist.md)
+- [Kebijakan keamanan](SECURITY.md)
+- [Changelog](CHANGELOG.md)
+
+## Sitasi dan release
+
+Metadata sitasi tersedia pada [`CITATION.cff`](CITATION.cff). Untuk hasil
+penelitian, gunakan tag atau GitHub Release yang sesuai dan catat commit SHA,
+periode data, konfigurasi, serta artefak yang digunakan.
