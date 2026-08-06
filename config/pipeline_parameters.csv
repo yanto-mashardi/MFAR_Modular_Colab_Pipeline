@@ -19,3 +19,13 @@ fallback_trip_min,45.0
 max_interpolation_gap_min,20.0
 motorcycle_ce,0.25
 minimum_rule_strength,0.35
+state_continuity_gap_factor,1.5
+state_stopped_speed_kn,0.8
+berth_exit_speed_kn,1.2
+berth_exit_radius_multiplier,1.5
+state_maneuver_speed_kn,3.0
+state_approach_radius_nm,0.6
+state_movement_eps_nm,0.005
+berth_episode_min_duration_min,10.0
+berth_episode_max_service_min,180.0
+berth_episode_min_points,2
