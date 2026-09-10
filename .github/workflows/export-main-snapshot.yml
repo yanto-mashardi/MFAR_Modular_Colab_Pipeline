@@ -1,0 +1,31 @@
+name: Export main snapshot
+
+on:
+  push:
+    branches:
+      - ops/export-main-snapshot
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout audited main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Record source metadata
+        shell: bash
+        run: |
+          git rev-parse HEAD > MAIN_COMMIT_SHA.txt
+          git status --short > WORKTREE_STATUS.txt
+          printf 'repository=yanto-mashardi/MFAR_Modular_Colab_Pipeline\nbranch=main\n' > SNAPSHOT_INFO.txt
+      - name: Upload repository snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: MFAR-main-snapshot
+          path: |
+            .
+            !.git/**
+          include-hidden-files: true
+          if-no-files-found: error
