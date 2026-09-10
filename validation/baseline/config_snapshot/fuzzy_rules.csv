@@ -1,0 +1,12 @@
+rule_id,antecedent_1,antecedent_2,antecedent_3,antecedent_4,operator,consequence,response,weight,priority
+R01,mu_origin_queue_low,mu_berth_available,,,MIN,Normal,NO_INTERVENTION,1.0,10
+R02,mu_destination_queue_low,mu_berth_available,,,MIN,Watch,MAINTAIN_SPEED,0.8,20
+R03,mu_origin_queue_medium,mu_berth_available,,,MIN,Warning,DEPART_NOW,1.0,60
+R04,mu_origin_queue_high,mu_berth_available,,,MIN,Warning,DEPART_NOW,1.0,70
+R05,mu_berth_unavailable,mu_wait_medium,,,MIN,Critical,HOLD_DEPARTURE,1.0,80
+R06,mu_berth_unavailable,mu_wait_long,,,MIN,Critical,REDUCE_SPEED,1.0,80
+R07,mu_origin_queue_high,mu_service_gap_long,,,MIN,Warning,INCREASE_SERVICE_PRIORITY,0.9,50
+R08,mu_destination_queue_high,mu_wait_long,,,MIN,Warning,RESCHEDULE_HEADWAY,0.85,40
+R09,mu_origin_queue_critical,mu_service_gap_long,mu_capacity_shortfall_high,,MIN,Critical,ADD_VESSEL,1.0,100
+R10,mu_confidence_low,mu_origin_queue_high,,,MIN,Critical,ALERT_OPERATOR,1.0,90
+R11,mu_confidence_low,mu_berth_unavailable,,,MIN,Critical,ALERT_OPERATOR,1.0,95

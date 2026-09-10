@@ -6,6 +6,7 @@ standalone HTML reports and compact Excel workbooks for scientific inspection.
 
 from __future__ import annotations
 
+from copy import copy
 from html import escape
 import json
 from pathlib import Path
@@ -225,8 +226,14 @@ def write_excel_summary(path: Path, sheets: Mapping[str, pd.DataFrame]) -> Path:
             ws.freeze_panes = "A2"
             ws.auto_filter.ref = ws.dimensions
             for cell in ws[1]:
-                cell.font = cell.font.copy(bold=True, color="FFFFFF")
-                cell.fill = cell.fill.copy(fill_type="solid", fgColor="0B5FA5")
+                header_font = copy(cell.font)
+                header_font.bold = True
+                header_font.color = "FFFFFF"
+                cell.font = header_font
+                header_fill = copy(cell.fill)
+                header_fill.fill_type = "solid"
+                header_fill.fgColor = "0B5FA5"
+                cell.fill = header_fill
             for column in ws.columns:
                 letter = column[0].column_letter
                 width = min(42, max(11, max(len(str(c.value or "")) for c in column) + 2))
