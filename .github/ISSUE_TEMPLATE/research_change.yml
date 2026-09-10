@@ -1,0 +1,63 @@
+name: Perubahan metode atau konfigurasi ilmiah
+description: Usulkan perubahan pada metode, parameter, rule, indikator, validasi, atau interpretasi MFAR.
+title: "[RESEARCH] "
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Tujuan perubahan
+      description: Rumuskan pertanyaan penelitian atau masalah operasional yang ingin dijawab.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_assumption
+    attributes:
+      label: Asumsi dan kondisi saat ini
+      description: Nyatakan definisi, parameter, atau logika yang berlaku sekarang serta kemungkinan kelemahannya.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_change
+    attributes:
+      label: Perubahan yang diusulkan
+      description: Sebutkan file, variabel, unit, stage, dan kontrak data yang terdampak.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Dasar bukti
+      description: Cantumkan referensi, hasil lapangan, analisis data, atau pengujian yang mendukung perubahan.
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Rencana validasi dan sensitivitas
+      description: Jelaskan baseline, pembanding, metrik, holdout, skenario, dan kriteria penerimaan.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outputs
+    attributes:
+      label: Artefak yang harus dihasilkan
+      placeholder: Pengujian, tabel, grafik, metadata, dokumentasi, dan pemetaan ke manuskrip.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scientific_checks
+    attributes:
+      label: Integritas metodologis
+      options:
+        - label: Perubahan tidak membangun ground truth dari metode yang sedang dievaluasi.
+          required: true
+        - label: Status Stage 07 tetap dinyatakan sebagai evaluasi skenario kecuali tersedia validasi empiris.
+          required: true
+        - label: Data privat dan output besar tetap berada di Google Drive.
+          required: true

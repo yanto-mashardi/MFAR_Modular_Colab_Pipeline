@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "Apabila menggunakan perangkat lunak ini, sitasikan repository dan release yang digunakan."
+title: "MFAR Modular Google Colab Pipeline"
+type: software
+authors:
+  - family-names: "Hardiyanto"
+    affiliation: "Department of Maritime, Politeknik Negeri Bengkalis"
+repository-code: "https://github.com/yanto-mashardi/MFAR_Modular_Colab_Pipeline"
+url: "https://github.com/yanto-mashardi/MFAR_Modular_Colab_Pipeline"
+abstract: >-
+  Pipeline penelitian modular untuk transformasi data AIS, pembentukan grid waktu,
+  monitoring keadaan operasional, forecast tanpa intervensi, fuzzification,
+  evaluasi rule Mamdani, dan evaluasi skenario tindakan pada layanan feri Ro-Ro
+  jarak pendek.
+keywords:
+  - Automatic Identification System
+  - Ro-Ro ferry
+  - maritime operations
+  - fuzzy inference
+  - reproducible research
