@@ -89,23 +89,21 @@ benar-benar digunakan.
   tersedia.
 - Januari–Februari 2026 menjadi periode kalibrasi lengkap. Maret 2026 menjadi
   temporal holdout untuk forecast dan evaluasi skenario.
-- Stage 04 membentuk kasus keputusan 15 menit sebelum keberangkatan AIS. Waktu
-  keberangkatan untuk ETA diestimasi dari decision lead dan prediksi pelepasan
-  dermaga; waktu keberangkatan AIS aktual hanya menjadi pembanding. Kalender
-  reservasi dermaga kausal mencegah dua ETA memakai slot yang sama.
+- Stage 04 membentuk kasus keputusan prospektif dari state grid sebelum
+  keberangkatan. Observed AIS departure hanya dipakai setelah prediksi sebagai
+  referensi validasi same-episode, bukan untuk membentuk decision epoch.
 - Stage 05–06 menggunakan file konfigurasi sebagai sumber tunggal membership,
   rule, prioritas, cooldown, dan kelayakan tindakan menurut fase operasi.
-  Stage 06 mengagregasikan konsekuensi dengan inferensi Mamdani dan menghitung
-  skor risiko menggunakan centroid pada universe 0–100.
+  Stage 06 mengagregasikan konsekuensi dengan inferensi Mamdani, menyediakan
+  assessment status eksplisit, dan membandingkan hasil dengan crisp benchmark.
 - Stage 07 berstatus **scenario evaluation**, bukan validasi empiris dampak
-  intervensi. Hasil dilaporkan per hari dan pelabuhan, termasuk kasus yang
-  membaik dan memburuk.
+  intervensi. Simulator menjaga mass balance antrean dan hasil dilaporkan per
+  hari/pelabuhan serta pada sensitivity grid.
 
 Diagram struktur tersedia pada `docs/mfar_pipeline_revised.png` dan SVG.
 
 Dependensi Python utama: `pandas`, `numpy`, `folium`, `matplotlib`,
 `ipywidgets`, dan—khusus Colab—`google.colab`.
-
 
 ## Keluaran interpretatif
 
@@ -137,8 +135,8 @@ berada di CSV.
 
 Untuk menjalankan seluruh tahap dalam satu kali perintah, buka
 [`notebooks/00_Run_All_Stages.ipynb`](notebooks/00_Run_All_Stages.ipynb) di
-Google Colab lalu pilih **Runtime → Run all**. Notebook pengendali memperbarui
-branch `test-colab-pipeline`, memasang dependensi, mengeksekusi 01–07, dan
+Google Colab lalu pilih **Runtime → Run all**. Notebook pengendali mengambil
+kode terbaru dari branch `main`, memasang dependensi, mengeksekusi 01–07, dan
 menimpa artefak bernama sama pada Google Drive.
 
 Instal dependensi sebelum eksekusi penuh:
