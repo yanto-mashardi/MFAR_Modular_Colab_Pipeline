@@ -17,8 +17,11 @@ jobs:
       - name: Record source metadata
         shell: bash
         run: |
+          git status --short > /tmp/WORKTREE_STATUS.txt
           git rev-parse HEAD > MAIN_COMMIT_SHA.txt
-          git status --short > WORKTREE_STATUS.txt
+          git ls-files > TRACKED_FILES.txt
+          git ls-files -z | xargs -0 sha256sum > TRACKED_SHA256.txt
+          cp /tmp/WORKTREE_STATUS.txt WORKTREE_STATUS.txt
           printf 'repository=yanto-mashardi/MFAR_Modular_Colab_Pipeline\nbranch=main\n' > SNAPSHOT_INFO.txt
       - name: Upload repository snapshot
         uses: actions/upload-artifact@v4
